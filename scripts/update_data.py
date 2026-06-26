@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import datetime as dt
 from pathlib import Path
@@ -39,13 +40,22 @@ FALLBACK_URL = (
 # BFS municipality number for the City of Zürich.
 ZURICH_CITY_BFS = 261
 
-# Field-name candidates (the dataset uses German column names; we try a few
-# spellings so the script keeps working if columns are renamed slightly).
+# Field-name candidates. The canton publishes English camelCase columns
+# (projectDescription, publicationDate, ...); we lowercase before matching
+# and keep German alternatives so a column rename doesn't break us.
 BFS_FIELDS = ["bfs", "bfs_nr", "bfsnr", "gemeinde_bfs", "bfs_nummer"]
-DESC_FIELDS = ["beschrieb", "projektbeschrieb", "beschreibung", "bezeichnung"]
-DATE_FIELDS = ["datum", "publikationsdatum", "eingangsdatum", "datum_publikation"]
+DESC_FIELDS = ["projectdescription", "beschrieb", "projektbeschrieb",
+               "beschreibung", "bezeichnung"]
+DATE_FIELDS = ["publicationdate", "datum", "publikationsdatum",
+               "eingangsdatum", "datum_publikation"]
 STATUS_FIELDS = ["status", "verfahrensstand", "stand"]
-ADDRESS_FIELDS = ["adresse", "strasse", "standort"]
+ADDRESS_FIELDS = ["address", "adresse", "strasse", "standort"]
+URL_FIELDS = ["url", "link"]
+ID_FIELDS = ["id", "publicationnumber", "gesuchsnr"]
+
+# When no BFS column exists, fall back to address-pattern filtering:
+# postcodes 80xx are all within Stadt Zürich.
+ZURICH_CITY_ADDR_RE = re.compile(r"80\d{2}\s+Z[üu]rich", re.IGNORECASE)
 
 OUT_DIR = Path(__file__).resolve().parent.parent / "docs" / "data"
 OUT_FILE = OUT_DIR / "baugesuche_zuerich.geojson"
@@ -123,17 +133,22 @@ def main() -> int:
     gdf = gpd.read_file(raw)
     print(f"[info] {len(gdf)} total features; columns: {list(gdf.columns)}")
 
-    # Filter to City of Zürich by BFS number where possible.
+    # Filter to City of Zürich. Prefer a BFS column; fall back to an
+    # address-pattern check (postcode 80xx + "Zürich").
     bfs_col = first_present(gdf.columns, BFS_FIELDS)
+    addr_col = first_present(gdf.columns, ADDRESS_FIELDS)
+    before = len(gdf)
     if bfs_col is not None:
-        before = len(gdf)
-        # BFS may be stored as str or int; compare loosely.
         gdf = gdf[gdf[bfs_col].astype(str).str.strip() == str(ZURICH_CITY_BFS)]
         print(f"[info] Filtered by {bfs_col}=={ZURICH_CITY_BFS}: "
               f"{before} -> {len(gdf)}")
+    elif addr_col is not None:
+        mask = gdf[addr_col].astype(str).str.contains(ZURICH_CITY_ADDR_RE, na=False)
+        gdf = gdf[mask]
+        print(f"[info] Filtered by {addr_col} matching '80xx Zürich': "
+              f"{before} -> {len(gdf)}")
     else:
-        print("[warn] No BFS column found; keeping all features. "
-              "Inspect the data and set the correct filter.")
+        print("[warn] No BFS or address column found; keeping all features.")
 
     if gdf.empty:
         print("[warn] No features after filtering. Writing empty FeatureCollection.")
@@ -149,6 +164,8 @@ def main() -> int:
     date_col = first_present(cols, DATE_FIELDS)
     status_col = first_present(cols, STATUS_FIELDS)
     addr_col = first_present(cols, ADDRESS_FIELDS)
+    url_col = first_present(cols, URL_FIELDS)
+    id_col = first_present(cols, ID_FIELDS)
 
     def prop(row, col):
         if col is None or col not in row:
@@ -167,10 +184,12 @@ def main() -> int:
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [pt.x, pt.y]},
             "properties": {
+                "id": prop(row, id_col),
                 "description": prop(row, desc_col),
                 "date": prop(row, date_col),
                 "status": prop(row, status_col),
                 "address": prop(row, addr_col),
+                "url": prop(row, url_col),
             },
         })
 
@@ -185,6 +204,7 @@ def main() -> int:
         "fields_detected": {
             "bfs": bfs_col, "description": desc_col,
             "date": date_col, "status": status_col, "address": addr_col,
+            "url": url_col, "id": id_col,
         },
     }
     META_FILE.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")

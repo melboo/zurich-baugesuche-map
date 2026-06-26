@@ -243,6 +243,7 @@ function showPopup(f) {
       ${p.address ? `<p><span class="k">Location:</span> ${escapeHtml(p.address)}</p>` : ''}
       <p><span class="k">Filed:</span> ${fmtDate(p.date)}</p>
       ${p.status ? `<p><span class="k">Status:</span> ${escapeHtml(p.status)}</p>` : ''}
+      ${p.url ? `<p><a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">Open official record →</a></p>` : ''}
     </div>`)
     .addTo(map);
 }
