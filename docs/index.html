@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Zürich Baugesuche — building applications map</title>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+  :root {
+    --ink: #1b1d1a;
+    --paper: #f6f4ee;
+    --line: #d8d3c6;
+    --accent: #b5482a;     /* Zürich brick / construction red-clay */
+    --accent-soft: #e8c9bd;
+    --muted: #6f6b60;
+    --pin: #b5482a;
+    --pin-stroke: #ffffff;
+    --shadow: 0 1px 2px rgba(27,29,26,.08), 0 8px 24px rgba(27,29,26,.10);
+    font-synthesis: none;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: ui-sans-serif, "Inter", "Helvetica Neue", Arial, system-ui, sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+    -webkit-font-smoothing: antialiased;
+  }
+  #app { display: grid; grid-template-columns: 360px 1fr; height: 100dvh; }
+
+  /* Sidebar */
+  aside {
+    border-right: 1px solid var(--line);
+    background: var(--paper);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  header.brand { padding: 22px 22px 14px; border-bottom: 1px solid var(--line); }
+  .eyebrow {
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent); font-weight: 650; margin: 0 0 8px;
+  }
+  h1 {
+    font-family: "Georgia", "Times New Roman", serif;
+    font-size: 25px; line-height: 1.12; margin: 0 0 8px; font-weight: 600;
+    letter-spacing: -.01em;
+  }
+  .lede { font-size: 13px; line-height: 1.5; color: var(--muted); margin: 0; }
+
+  .controls { padding: 16px 22px; border-bottom: 1px solid var(--line); display: grid; gap: 14px; }
+  .field label {
+    display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 6px; font-weight: 600;
+  }
+  .field input[type="search"], .field select {
+    width: 100%; padding: 9px 11px; font-size: 13px; color: var(--ink);
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    appearance: none; -webkit-appearance: none;
+  }
+  .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .rangeRow { display: flex; align-items: center; gap: 10px; }
+  .rangeRow input[type="range"] { flex: 1; accent-color: var(--accent); }
+  .rangeVal { font-size: 12px; color: var(--ink); min-width: 92px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  .count { padding: 12px 22px; font-size: 13px; color: var(--ink); border-bottom: 1px solid var(--line); }
+  .count b { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+  .list { overflow-y: auto; min-height: 0; flex: 1; }
+  .item {
+    padding: 13px 22px; border-bottom: 1px solid var(--line); cursor: pointer;
+    transition: background .12s ease;
+  }
+  .item:hover, .item.active { background: #efe9dc; }
+  .item h3 { margin: 0 0 4px; font-size: 13.5px; font-weight: 600; line-height: 1.3; }
+  .item .meta { font-size: 11.5px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+  .tag {
+    display: inline-block; font-size: 10.5px; padding: 1px 7px; border-radius: 999px;
+    background: var(--accent-soft); color: #7a2c17; font-weight: 600; letter-spacing: .02em;
+  }
+
+  footer.note { padding: 12px 22px 16px; font-size: 11px; color: var(--muted); line-height: 1.45; border-top: 1px solid var(--line); }
+  footer.note a { color: var(--accent); }
+
+  /* Map */
+  #map { position: relative; height: 100%; }
+  .maplibregl-popup-content {
+    font-family: inherit; border-radius: 10px; padding: 14px 15px; box-shadow: var(--shadow);
+    border: 1px solid var(--line);
+  }
+  .popup h3 { margin: 0 0 6px; font-size: 14px; }
+  .popup p { margin: 3px 0; font-size: 12.5px; color: var(--ink); }
+  .popup .k { color: var(--muted); }
+
+  .empty { padding: 30px 22px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+  @media (max-width: 760px) {
+    #app { grid-template-columns: 1fr; grid-template-rows: 44dvh 56dvh; }
+    aside { border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <header class="brand">
+      <p class="eyebrow">Kanton Zürich · Open Data</p>
+      <h1>Where Zürich is building</h1>
+      <p class="lede">Building applications (Baugesuche) filed in the city of Zürich. Each pin is a filed project — proposed, under review, or approved. Updated daily.</p>
+    </header>
+
+    <div class="controls">
+      <div class="field">
+        <label for="q">Search description or address</label>
+        <input id="q" type="search" placeholder="e.g. Neubau, Wohnungen, Aussersihl" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="status">Status</label>
+        <select id="status"><option value="">All statuses</option></select>
+      </div>
+      <div class="field">
+        <label for="since">Filed within</label>
+        <div class="rangeRow">
+          <input id="since" type="range" min="0" max="365" value="365" step="5" />
+          <span class="rangeVal" id="sinceVal">all available</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="count">Showing <b id="shown">0</b> of <span id="total">0</span> applications</div>
+    <div class="list" id="list"></div>
+    <footer class="note">
+      Source: <a href="https://opendata.swiss/de/dataset/baugesuche-im-kanton-zurich" target="_blank" rel="noopener">Baugesuche im Kanton Zürich</a>, opendata.swiss.
+      A filed application does not mean construction has started or that a project was realised.
+      <span id="stamp"></span>
+    </footer>
+  </aside>
+
+  <div id="map"></div>
+</div>
+
+<script>
+const ZH = { center: [8.5417, 47.3769], zoom: 11.6 };
+
+const map = new maplibregl.Map({
+  container: 'map',
+  style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+  center: ZH.center, zoom: ZH.zoom, attributionControl: true,
+});
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+
+let ALL = [];        // all features
+let popup = null;
+
+const els = {
+  q: document.getElementById('q'),
+  status: document.getElementById('status'),
+  since: document.getElementById('since'),
+  sinceVal: document.getElementById('sinceVal'),
+  shown: document.getElementById('shown'),
+  total: document.getElementById('total'),
+  list: document.getElementById('list'),
+  stamp: document.getElementById('stamp'),
+};
+
+function parseDate(s) {
+  if (!s) return null;
+  // accept YYYY-MM-DD or DD.MM.YYYY
+  let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  m = /^(\d{2})\.(\d{2})\.(\d{4})/.exec(s);
+  if (m) return new Date(+m[3], +m[2]-1, +m[1]);
+  const d = new Date(s); return isNaN(d) ? null : d;
+}
+
+function fmtDate(s) {
+  const d = parseDate(s);
+  if (!d) return s || '—';
+  return d.toLocaleDateString('de-CH', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function applyFilters() {
+  const q = els.q.value.trim().toLowerCase();
+  const status = els.status.value;
+  const days = +els.since.value;
+  const cutoff = days >= 365 ? null : new Date(Date.now() - days*864e5);
+  els.sinceVal.textContent = days >= 365 ? 'all available' : `last ${days} days`;
+
+  const out = ALL.filter(f => {
+    const p = f.properties;
+    if (status && p.status !== status) return false;
+    if (cutoff) { const d = parseDate(p.date); if (!d || d < cutoff) return false; }
+    if (q) {
+      const hay = `${p.description||''} ${p.address||''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  map.getSource('apps').setData({ type:'FeatureCollection', features: out });
+  els.shown.textContent = out.length;
+  renderList(out);
+}
+
+function renderList(features) {
+  const top = features.slice(0, 300);
+  if (!features.length) {
+    els.list.innerHTML = '<div class="empty">No applications match these filters. Try widening the date range or clearing the search.</div>';
+    return;
+  }
+  els.list.innerHTML = top.map((f, i) => {
+    const p = f.properties;
+    const title = p.description ? p.description : (p.address || 'Building application');
+    return `<div class="item" data-i="${i}">
+      <h3>${escapeHtml(truncate(title, 90))}</h3>
+      <div class="meta">
+        ${p.status ? `<span class="tag">${escapeHtml(p.status)}</span>` : ''}
+        <span>${fmtDate(p.date)}</span>
+        ${p.address ? `<span>${escapeHtml(truncate(p.address, 40))}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('') + (features.length > top.length
+    ? `<div class="empty">+ ${features.length - top.length} more — zoom or filter to narrow down.</div>` : '');
+
+  [...els.list.querySelectorAll('.item')].forEach(el => {
+    el.addEventListener('click', () => {
+      const f = top[+el.dataset.i];
+      const c = f.geometry.coordinates;
+      map.flyTo({ center: c, zoom: 16, speed: 1.2 });
+      showPopup(f);
+      els.list.querySelectorAll('.item').forEach(x => x.classList.remove('active'));
+      el.classList.add('active');
+    });
+  });
+}
+
+function showPopup(f) {
+  const p = f.properties;
+  if (popup) popup.remove();
+  popup = new maplibregl.Popup({ closeButton: true, maxWidth: '300px' })
+    .setLngLat(f.geometry.coordinates)
+    .setHTML(`<div class="popup">
+      <h3>${escapeHtml(p.description || 'Building application')}</h3>
+      ${p.address ? `<p><span class="k">Location:</span> ${escapeHtml(p.address)}</p>` : ''}
+      <p><span class="k">Filed:</span> ${fmtDate(p.date)}</p>
+      ${p.status ? `<p><span class="k">Status:</span> ${escapeHtml(p.status)}</p>` : ''}
+    </div>`)
+    .addTo(map);
+}
+
+function truncate(s, n) { return s.length > n ? s.slice(0, n-1) + '…' : s; }
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+map.on('load', async () => {
+  map.addSource('apps', { type:'geojson', data:{type:'FeatureCollection',features:[]} });
+  map.addLayer({
+    id:'apps-circles', type:'circle', source:'apps',
+    paint:{
+      'circle-radius':['interpolate',['linear'],['zoom'],10,3.5,14,6,17,9],
+      'circle-color':'#b5482a',
+      'circle-opacity':0.82,
+      'circle-stroke-color':'#ffffff',
+      'circle-stroke-width':1.2,
+    }
+  });
+  map.on('click','apps-circles', e => showPopup(e.features[0]));
+  map.on('mouseenter','apps-circles', () => map.getCanvas().style.cursor='pointer');
+  map.on('mouseleave','apps-circles', () => map.getCanvas().style.cursor='');
+
+  try {
+    const [geo, meta] = await Promise.all([
+      fetch('data/baugesuche_zuerich.geojson').then(r => r.json()),
+      fetch('data/meta.json').then(r => r.ok ? r.json() : null).catch(() => null),
+    ]);
+    ALL = geo.features || [];
+    els.total.textContent = ALL.length;
+
+    const statuses = [...new Set(ALL.map(f => f.properties.status).filter(Boolean))].sort();
+    for (const s of statuses) {
+      const o = document.createElement('option'); o.value = s; o.textContent = s;
+      els.status.appendChild(o);
+    }
+    if (meta && meta.updated_utc) {
+      els.stamp.textContent = ` Last refreshed ${new Date(meta.updated_utc).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}.`;
+    }
+    applyFilters();
+  } catch (err) {
+    els.list.innerHTML = '<div class="empty">Could not load data yet. If you just deployed, the daily updater may not have run — trigger the GitHub Action manually, then refresh.</div>';
+    console.error(err);
+  }
+});
+
+['input','change'].forEach(ev => {
+  els.q.addEventListener(ev, applyFilters);
+  els.status.addEventListener(ev, applyFilters);
+  els.since.addEventListener(ev, applyFilters);
+});
+</script>
+</body>
+</html>

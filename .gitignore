@@ -1,0 +1,5 @@
+_raw.geojson
+_raw.gpkg
+__pycache__/
+*.pyc
+.DS_Store
