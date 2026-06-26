@@ -1,12 +1,14 @@
 {
-  "updated_utc": "2026-06-26T11:01:23+00:00",
+  "updated_utc": "2026-06-26T11:07:42+00:00",
   "source_url": "https://daten.statistik.zh.ch/ogd/daten/ressourcen/KTZH_00002982_00006403.gpkg",
-  "feature_count": 9908,
+  "feature_count": 1964,
   "fields_detected": {
     "bfs": null,
-    "description": null,
-    "date": null,
+    "description": "projectDescription",
+    "date": "publicationDate",
     "status": null,
-    "address": null
+    "address": "address",
+    "url": "url",
+    "id": "id"
   }
 }
