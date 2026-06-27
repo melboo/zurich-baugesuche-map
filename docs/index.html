@@ -185,9 +185,13 @@
   }
   .panel-toggle:hover { opacity: 0.85; }
 
-  .list {
-    overflow-y: auto; flex: 1; min-height: 0;
+  .scroll-area {
+    flex: 1; min-height: 0;
+    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  .list {
     padding: 0 12px 12px;
   }
   .item {
@@ -271,18 +275,22 @@
   }
 
   .footer {
-    padding: 16px 18px 20px;
-    border-top: 1px solid var(--line);
+    padding: 18px 18px 24px;
+    margin-top: 8px;
     font-size: 12px; color: var(--muted); line-height: 1.55;
   }
-  .footer .stamp { display: block; margin-top: 6px; }
   .footer .show-all {
-    display: inline-block; margin-top: 10px;
-    color: var(--ink); font-weight: 500;
-    border-bottom: 1px solid var(--line-2);
-    padding-bottom: 1px;
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 10px 14px; margin-bottom: 14px;
+    color: var(--ink); font-weight: 500; font-size: 13px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-pill);
+    transition: border-color .15s, background .15s;
   }
-  .footer .show-all:hover { border-bottom-color: var(--ink); }
+  @media (hover: hover) {
+    .footer .show-all:hover { border-color: var(--ink); background: var(--surface-2); }
+  }
+  .footer .footer-src { margin: 0; }
+  .footer .stamp { display: block; margin-top: 8px; }
 
   /* --- Detail card --- */
   .detail {
@@ -447,16 +455,18 @@
     </button>
   </div>
 
-  <div class="list" id="list" role="list">
-    <div class="skel" aria-hidden="true"><div class="b med"></div><div class="b short"></div></div>
-    <div class="skel" aria-hidden="true"><div class="b med"></div><div class="b short"></div></div>
-    <div class="skel" aria-hidden="true"><div class="b med"></div><div class="b short"></div></div>
-  </div>
+  <div class="scroll-area">
+    <div class="list" id="list" role="list">
+      <div class="skel" aria-hidden="true"><div class="b med"></div><div class="b short"></div></div>
+      <div class="skel" aria-hidden="true"><div class="b med"></div><div class="b short"></div></div>
+      <div class="skel" aria-hidden="true"><div class="b med"></div><div class="b short"></div></div>
+    </div>
 
-  <div class="footer">
-    Quelle: <a href="https://opendata.swiss/de/dataset/baugesuche-im-kanton-zurich" target="_blank" rel="noopener">opendata.swiss</a>. Persönliche Daten sind nicht im Datensatz – Bauherr und Architekt findest du im verlinkten Amtsblatt-Eintrag.
-    <span class="stamp" id="stamp"></span>
-    <button class="show-all" id="showAll">Auch andere Baugesuche zeigen →</button>
+    <div class="footer">
+      <button class="show-all" id="showAll">Auch andere Baugesuche zeigen →</button>
+      <p class="footer-src">Quelle: <a href="https://opendata.swiss/de/dataset/baugesuche-im-kanton-zurich" target="_blank" rel="noopener">opendata.swiss</a>. Persönliche Daten sind nicht im Datensatz – Bauherr und Architekt findest du im verlinkten Amtsblatt-Eintrag.</p>
+      <span class="stamp" id="stamp"></span>
+    </div>
   </div>
 </aside>
 
