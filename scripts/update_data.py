@@ -48,6 +48,7 @@ DESC_FIELDS = ["projectdescription", "beschrieb", "projektbeschrieb",
                "beschreibung", "bezeichnung"]
 DATE_FIELDS = ["publicationdate", "datum", "publikationsdatum",
                "eingangsdatum", "datum_publikation"]
+EXPIRATION_FIELDS = ["expirationdate", "ablaufdatum", "expiry", "gueltig_bis"]
 STATUS_FIELDS = ["status", "verfahrensstand", "stand"]
 ADDRESS_FIELDS = ["address", "adresse", "strasse", "standort"]
 URL_FIELDS = ["url", "link"]
@@ -162,6 +163,7 @@ def main() -> int:
     cols = gdf.columns
     desc_col = first_present(cols, DESC_FIELDS)
     date_col = first_present(cols, DATE_FIELDS)
+    exp_col = first_present(cols, EXPIRATION_FIELDS)
     status_col = first_present(cols, STATUS_FIELDS)
     addr_col = first_present(cols, ADDRESS_FIELDS)
     url_col = first_present(cols, URL_FIELDS)
@@ -187,6 +189,7 @@ def main() -> int:
                 "id": prop(row, id_col),
                 "description": prop(row, desc_col),
                 "date": prop(row, date_col),
+                "expiration": prop(row, exp_col),
                 "status": prop(row, status_col),
                 "address": prop(row, addr_col),
                 "url": prop(row, url_col),
@@ -203,7 +206,8 @@ def main() -> int:
         "feature_count": len(features),
         "fields_detected": {
             "bfs": bfs_col, "description": desc_col,
-            "date": date_col, "status": status_col, "address": addr_col,
+            "date": date_col, "expiration": exp_col,
+            "status": status_col, "address": addr_col,
             "url": url_col, "id": id_col,
         },
     }
