@@ -3,254 +3,300 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#f6f4ee" />
-<title>Baugesuche in der Stadt Zürich</title>
+<meta name="theme-color" content="#fbfaf7" />
+<title>Baugesuche · Stadt Zürich</title>
 <meta name="description" content="Wo in Zürich gebaut wird – tägliche Karte aller eingereichten Baugesuche." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
   :root {
-    --ink: #1b1d1a;
-    --paper: #f6f4ee;
-    --surface: #ffffff;
-    --line: #d8d3c6;
-    --line-soft: #ebe6da;
-    --accent: #b5482a;
-    --accent-soft: #e8c9bd;
-    --accent-deep: #7a2c17;
-    --muted: #6f6b60;
-    --shadow-1: 0 1px 2px rgba(27,29,26,.08);
-    --shadow-2: 0 8px 24px rgba(27,29,26,.10);
-    --shadow-3: 0 -8px 28px rgba(27,29,26,.10);
-    --radius: 12px;
-    --radius-pill: 999px;
+    --paper:   #fbfaf7;
+    --paper-2: #f1efe8;
+    --ink:     #0e1115;
+    --rule:    #000000;
+    --muted:   #646773;
+    --blue:    #0033a0;
+    --blue-2:  #001f63;
+    --signal:  #f5d800;
+    --signal-ink: #1a1500;
+    --shadow-card: 0 1px 0 #000, 0 12px 28px rgba(0,0,0,.10);
+    --shadow-soft: 0 1px 0 rgba(0,0,0,.06), 0 6px 18px rgba(0,0,0,.07);
     --tap: 44px;
     font-synthesis: none;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --ink: #ece8df;
-      --paper: #15171a;
-      --surface: #1d2024;
-      --line: #2d3036;
-      --line-soft: #24272c;
-      --muted: #9b958a;
-      --accent: #e07350;
-      --accent-soft: #4a2418;
-      --accent-deep: #ffd6c5;
-    }
   }
 
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; overscroll-behavior: none; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter",
-                 "Helvetica Neue", system-ui, sans-serif;
+    font-family: "Geist", -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+    font-feature-settings: "ss01", "ss03", "cv11", "tnum";
     color: var(--ink); background: var(--paper);
     -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
+    letter-spacing: -0.005em;
   }
+  .mono { font-family: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace; }
 
   button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
+  a { color: var(--blue); text-underline-offset: 2px; }
 
-  /* --- Map (always full bleed) --- */
+  /* --- Map --- */
   #map { position: fixed; inset: 0; background: var(--paper); }
-  .maplibregl-ctrl-bottom-right { margin-bottom: calc(env(safe-area-inset-bottom) + 142px) !important; }
-  .maplibregl-ctrl-bottom-left { margin-bottom: calc(env(safe-area-inset-bottom) + 142px) !important; }
+  .maplibregl-ctrl-bottom-right { margin-bottom: calc(env(safe-area-inset-bottom) + 156px) !important; margin-right: 12px !important; }
+  .maplibregl-ctrl-bottom-left  { margin-bottom: calc(env(safe-area-inset-bottom) + 156px) !important; margin-left: 12px !important; }
+  .maplibregl-ctrl-group { border-radius: 2px !important; border: 1px solid var(--ink) !important; box-shadow: var(--shadow-soft) !important; background: var(--paper) !important; }
+  .maplibregl-ctrl-group button { border-radius: 0 !important; }
+  .maplibregl-ctrl-attrib { background: rgba(251,250,247,.85) !important; font-size: 10px !important; }
 
-  /* --- Top search bar (floats over map) --- */
+  /* --- Top bar: search + chips --- */
   .topbar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 20;
     padding: calc(env(safe-area-inset-top) + 10px) 12px 8px;
     pointer-events: none;
   }
-  .topbar-inner { display: flex; flex-direction: column; gap: 8px; pointer-events: auto; max-width: 720px; margin: 0 auto; }
+  .topbar-inner { display: flex; flex-direction: column; gap: 8px; pointer-events: auto; max-width: 760px; margin: 0 auto; }
   .search {
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: center; gap: 10px;
     height: var(--tap);
-    background: var(--surface);
-    border-radius: var(--radius-pill);
-    box-shadow: var(--shadow-1), var(--shadow-2);
+    background: var(--paper);
+    border: 1px solid var(--ink); border-radius: 2px;
+    box-shadow: var(--shadow-soft);
     padding: 0 6px 0 14px;
-    border: 1px solid var(--line-soft);
   }
-  .search svg { flex: 0 0 auto; color: var(--muted); }
+  .search svg { flex: 0 0 auto; color: var(--ink); }
   .search input {
     flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink);
-    font-size: 15px; height: 100%; outline: none;
+    font-size: 15px; height: 100%; outline: none; font-family: inherit;
   }
   .search input::placeholder { color: var(--muted); }
   .search-clear {
-    flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%;
-    display: none; align-items: center; justify-content: center;
-    color: var(--muted);
+    flex: 0 0 auto; width: 32px; height: 32px; border-radius: 2px;
+    display: none; align-items: center; justify-content: center; color: var(--muted);
   }
   .search.has-value .search-clear { display: inline-flex; }
-  .search-clear:hover, .search-clear:focus-visible { background: var(--line-soft); color: var(--ink); }
+  .search-clear:hover { background: var(--paper-2); color: var(--ink); }
 
-  /* Filter chips */
   .chips {
     display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
-    padding: 2px 2px 4px; margin: 0 -2px;
+    padding: 0; margin: 0;
   }
   .chips::-webkit-scrollbar { display: none; }
   .chip {
-    flex: 0 0 auto; height: 34px; padding: 0 14px;
-    background: var(--surface); color: var(--ink);
-    border: 1px solid var(--line); border-radius: var(--radius-pill);
-    font-size: 13px; font-weight: 500; letter-spacing: -.01em;
-    transition: background .15s, color .15s, border-color .15s;
-    box-shadow: var(--shadow-1);
-    display: inline-flex; align-items: center;
+    flex: 0 0 auto; height: 34px; padding: 0 12px;
+    background: var(--paper); color: var(--ink);
+    border: 1px solid var(--ink); border-radius: 2px;
+    font-size: 12.5px; font-weight: 500; letter-spacing: 0;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: background .12s, color .12s;
   }
-  .chip:hover { border-color: var(--ink); }
-  .chip[aria-pressed="true"] {
-    background: var(--ink); color: var(--paper); border-color: var(--ink);
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  .chip .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--signal);
+    border: 1px solid var(--ink); display: inline-block;
   }
+  .chip[aria-pressed="true"] .dot { border-color: var(--paper); }
+  .chip[data-days="0"] .dot { display: none; }
 
-  /* --- Bottom drawer (mobile) / Sidebar (desktop) --- */
+  /* --- Bottom panel (mobile) / sidebar (desktop) --- */
   .panel {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 15;
     background: var(--paper);
-    border-top-left-radius: 18px; border-top-right-radius: 18px;
-    box-shadow: var(--shadow-3);
+    border-top: 1px solid var(--ink);
+    box-shadow: 0 -10px 28px rgba(0,0,0,.08);
     display: flex; flex-direction: column;
-    max-height: 85dvh;
-    transition: transform .28s cubic-bezier(.2,.7,.2,1);
+    max-height: 86dvh;
+    transition: transform .26s cubic-bezier(.2,.7,.2,1);
     padding-bottom: env(safe-area-inset-bottom);
   }
-  .panel.collapsed { transform: translateY(calc(100% - 122px)); }
+  .panel.collapsed { transform: translateY(calc(100% - 132px)); }
+  @media (prefers-reduced-motion: reduce) { .panel { transition: none; } }
 
   .panel-handle {
-    width: 100%; padding: 8px 0 4px; display: flex; flex-direction: column;
-    align-items: center; flex: 0 0 auto; -webkit-tap-highlight-color: transparent;
+    width: 100%; padding: 8px 0 6px; display: flex; flex-direction: column;
+    align-items: center; flex: 0 0 auto;
   }
   .panel-handle::before {
-    content: ""; width: 38px; height: 4px; border-radius: 4px;
-    background: var(--line); display: block; margin-bottom: 6px;
+    content: ""; width: 40px; height: 3px; background: var(--muted); display: block; border-radius: 2px;
   }
   .panel-summary {
-    width: 100%; padding: 4px 18px 12px;
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    flex: 0 0 auto;
+    width: 100%; padding: 6px 18px 14px;
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
+    flex: 0 0 auto; border-bottom: 1px solid var(--rule);
   }
-  .count { font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: -.01em; }
-  .count b { color: var(--accent); font-variant-numeric: tabular-nums; }
-  .count-sub { display: block; font-size: 11.5px; font-weight: 500; color: var(--muted); margin-top: 2px; }
+  .count-num {
+    font-family: "Geist Mono", ui-monospace, Menlo, monospace;
+    font-size: 30px; font-weight: 500; line-height: 1; letter-spacing: -0.02em;
+    color: var(--ink); display: block;
+  }
+  .count-label {
+    display: block; margin-top: 4px;
+    font-family: "Geist Mono", ui-monospace, Menlo, monospace;
+    font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted);
+  }
   .panel-toggle {
-    height: 36px; padding: 0 14px;
-    background: var(--line-soft); color: var(--ink);
-    border-radius: var(--radius-pill); font-size: 13px; font-weight: 500;
+    height: 32px; padding: 0 12px;
+    background: var(--paper); color: var(--ink);
+    border: 1px solid var(--ink); border-radius: 2px;
+    font-size: 12px; font-weight: 500;
     display: inline-flex; align-items: center; gap: 6px;
+    font-family: "Geist Mono", ui-monospace, monospace;
+    text-transform: uppercase; letter-spacing: 0.08em;
   }
-  .panel-toggle:hover { background: var(--line); }
+  .panel-toggle:hover { background: var(--ink); color: var(--paper); }
 
   .list { overflow-y: auto; flex: 1; min-height: 0; -webkit-overflow-scrolling: touch; }
   .item {
-    padding: 14px 18px; border-top: 1px solid var(--line-soft);
-    display: block; width: 100%; text-align: left;
-    -webkit-tap-highlight-color: transparent;
-    transition: background .12s;
+    padding: 14px 18px; border-bottom: 1px solid var(--paper-2);
+    display: grid; grid-template-columns: 64px 1fr; gap: 14px;
+    width: 100%; text-align: left;
+    transition: background .1s;
   }
-  .item:first-child { border-top: 0; }
-  .item:hover, .item.active, .item:focus-visible { background: var(--line-soft); outline: none; }
-  .item h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; line-height: 1.35; color: var(--ink); }
-  .item .meta {
-    font-size: 12px; color: var(--muted);
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  .item:hover, .item.active, .item:focus-visible { background: var(--paper-2); outline: none; }
+  .item .ts {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 11px; line-height: 1.3; color: var(--ink);
+    padding-top: 2px;
   }
-  .item .meta time { font-variant-numeric: tabular-nums; }
-  .item .meta .dot { width: 3px; height: 3px; background: var(--muted); border-radius: 50%; }
+  .item .ts .yr { color: var(--muted); font-size: 10px; display: block; margin-top: 2px; }
+  .item .ts .new {
+    display: inline-block; margin-top: 6px;
+    font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    background: var(--signal); color: var(--signal-ink);
+    padding: 1px 5px; border: 1px solid var(--ink); border-radius: 2px;
+  }
+  .item h3 {
+    margin: 0 0 6px; font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  .item .addr {
+    font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px;
+  }
+  .item .addr::before {
+    content: ""; width: 5px; height: 5px; background: var(--blue); display: inline-block;
+    flex: 0 0 auto;
+  }
+  .item.is-new .addr::before { background: var(--signal); }
 
   .empty, .loading {
     padding: 28px 22px; color: var(--muted); font-size: 13.5px; line-height: 1.55; text-align: center;
   }
-  .skel { display: flex; flex-direction: column; gap: 4px; padding: 14px 18px; border-top: 1px solid var(--line-soft); }
-  .skel .b { background: var(--line-soft); border-radius: 6px; height: 12px; animation: pulse 1.4s ease-in-out infinite; }
+  .skel { display: flex; flex-direction: column; gap: 6px; padding: 14px 18px; border-bottom: 1px solid var(--paper-2); }
+  .skel .b { background: var(--paper-2); height: 12px; animation: pulse 1.4s ease-in-out infinite; }
   .skel .b.short { width: 35%; height: 10px; }
-  .skel .b.med { width: 75%; }
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+  .skel .b.med   { width: 75%; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+  @media (prefers-reduced-motion: reduce) { .skel .b { animation: none; } }
 
-  .more { padding: 16px 22px; color: var(--muted); font-size: 12.5px; text-align: center; border-top: 1px solid var(--line-soft); }
-
-  /* Footer pinned at bottom of list */
-  .footer {
-    border-top: 1px solid var(--line-soft); padding: 14px 18px;
-    font-size: 11.5px; color: var(--muted); line-height: 1.5;
+  .more {
+    padding: 16px 22px; color: var(--muted); font-size: 12px; text-align: center;
+    border-top: 1px solid var(--paper-2);
+    font-family: "Geist Mono", monospace; letter-spacing: 0.04em;
   }
-  .footer a { color: var(--accent); }
-  .footer .stamp { display: block; margin-top: 4px; font-variant-numeric: tabular-nums; }
 
-  /* --- Detail card (replaces MapLibre popup on mobile) --- */
+  .footer {
+    border-top: 1px solid var(--rule); padding: 14px 18px;
+    font-size: 11.5px; color: var(--muted); line-height: 1.55;
+  }
+  .footer .stamp {
+    display: block; margin-top: 6px; font-family: "Geist Mono", monospace;
+    font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+
+  /* --- Bauinformation detail card --- */
   .detail {
     position: fixed; left: 12px; right: 12px;
     bottom: calc(env(safe-area-inset-bottom) + 16px);
-    background: var(--surface);
-    border-radius: var(--radius); box-shadow: var(--shadow-2);
-    padding: 16px 16px 14px; z-index: 30;
-    border: 1px solid var(--line-soft);
-    transform: translateY(120%); transition: transform .26s cubic-bezier(.2,.7,.2,1);
-    max-width: 460px; margin: 0 auto;
+    background: var(--paper);
+    border: 1px solid var(--ink); border-radius: 2px;
+    box-shadow: var(--shadow-card);
+    padding: 0; z-index: 30; max-width: 460px; margin: 0 auto;
+    transform: translateY(120%); transition: transform .24s cubic-bezier(.2,.7,.2,1);
   }
+  @media (prefers-reduced-motion: reduce) { .detail { transition: none; } }
   .detail.show { transform: translateY(0); }
+  .detail-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 8px 8px 8px 14px;
+    background: var(--ink); color: var(--paper);
+    font-family: "Geist Mono", monospace;
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .detail-head .id { color: var(--paper); opacity: 0.7; font-size: 10.5px; text-transform: none; letter-spacing: 0.02em; }
   .detail-close {
-    position: absolute; top: 8px; right: 8px;
-    width: 32px; height: 32px; border-radius: 50%; color: var(--muted);
+    flex: 0 0 auto; width: 30px; height: 30px; border-radius: 2px; color: var(--paper);
     display: inline-flex; align-items: center; justify-content: center;
   }
-  .detail-close:hover { background: var(--line-soft); color: var(--ink); }
-  .detail h3 { margin: 0 28px 8px 0; font-size: 15.5px; font-weight: 600; line-height: 1.35; }
-  .detail p { margin: 4px 0; font-size: 13px; color: var(--ink); }
-  .detail .k { color: var(--muted); margin-right: 4px; }
+  .detail-close:hover { background: rgba(255,255,255,.15); }
+  .detail-body { padding: 16px 16px 14px; }
+  .detail-body h3 {
+    margin: 0 0 14px; font-size: 17px; font-weight: 500; line-height: 1.3; letter-spacing: -0.01em;
+  }
+  .detail-row { margin: 12px 0; }
+  .detail-row .k {
+    display: block;
+    font-family: "Geist Mono", monospace; font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 3px;
+  }
+  .detail-row .v { font-size: 13.5px; color: var(--ink); }
+  .detail-row .v.mono { font-family: "Geist Mono", monospace; font-size: 13px; }
   .detail .link {
-    display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
-    color: var(--accent); font-weight: 500; font-size: 13px;
-    text-decoration: none;
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--paper-2);
+    display: inline-flex; align-items: center; gap: 8px;
+    color: var(--blue); font-weight: 500; font-size: 13px; text-decoration: none;
   }
   .detail .link:hover { text-decoration: underline; }
+  .detail .recent-strip {
+    height: 4px; background: var(--signal); border-bottom: 1px solid var(--ink); display: none;
+  }
+  .detail.is-new .recent-strip { display: block; }
 
-  /* --- Desktop: sidebar layout --- */
-  @media (min-width: 900px) {
-    #map { left: 400px; }
-    .topbar { left: 400px; }
+  /* --- Desktop layout: sidebar + map --- */
+  @media (min-width: 920px) {
+    #map { left: 408px; }
+    .topbar { left: 408px; }
     .topbar-inner { max-width: none; }
     .panel {
       position: fixed; top: 0; left: 0; bottom: 0; right: auto;
-      width: 400px; max-height: none; border-radius: 0;
-      border-right: 1px solid var(--line); box-shadow: none;
-      transform: none !important;
-      padding-bottom: 0;
+      width: 408px; max-height: none; border-top: 0;
+      border-right: 1px solid var(--rule); box-shadow: none;
+      transform: none !important; padding-bottom: 0;
     }
     .panel-handle { display: none; }
-    .panel-summary {
-      padding: 20px 22px 14px; border-bottom: 1px solid var(--line);
-      flex-direction: column; align-items: flex-start; gap: 4px;
-    }
-    .panel-toggle { display: none; }
     .desktop-brand {
-      display: block; padding: 22px 22px 12px;
-      border-bottom: 1px solid var(--line-soft);
+      display: block; padding: 24px 22px 18px;
+      border-bottom: 1px solid var(--rule);
     }
     .desktop-brand .eyebrow {
-      font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
-      color: var(--accent); font-weight: 650; margin: 0 0 8px;
+      font-family: "Geist Mono", monospace;
+      font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--muted); margin: 0 0 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .desktop-brand .eyebrow .north {
+      width: 12px; height: 14px;
     }
     .desktop-brand h1 {
-      font-family: "Georgia", "Times New Roman", serif;
-      font-size: 24px; line-height: 1.15; margin: 0 0 6px; font-weight: 600;
+      font-size: 28px; line-height: 1.05; margin: 0 0 8px; font-weight: 600;
+      letter-spacing: -0.025em;
     }
-    .desktop-brand .lede { font-size: 13px; color: var(--muted); margin: 0; line-height: 1.5; }
+    .desktop-brand .lede { font-size: 13.5px; color: var(--muted); margin: 0; line-height: 1.55; }
+    .panel-summary { padding: 18px 22px 14px; }
+    .panel-toggle { display: none; }
     .detail {
-      position: absolute; left: 420px; right: auto; bottom: 20px;
-      width: 360px; max-width: none; margin: 0;
+      position: absolute; left: 428px; right: auto; bottom: 20px;
+      width: 380px; max-width: none; margin: 0;
     }
     .maplibregl-ctrl-bottom-right { margin-bottom: 12px !important; }
-    .maplibregl-ctrl-bottom-left { margin-bottom: 12px !important; }
+    .maplibregl-ctrl-bottom-left  { margin-bottom: 12px !important; }
   }
   .desktop-brand { display: none; }
 
-  /* --- A11y --- */
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 1px; }
   .sr-only {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
@@ -264,45 +310,46 @@
 <div class="topbar">
   <div class="topbar-inner">
     <div class="search" id="search">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>
       </svg>
       <input id="q" type="search" inputmode="search" enterkeyhint="search"
              placeholder="Adresse oder Projekt suchen" aria-label="Baugesuche durchsuchen" autocomplete="off" />
       <button class="search-clear" id="qClear" type="button" aria-label="Suche löschen">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18 6 6 18M6 6l12 12"/>
-        </svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
     </div>
     <div class="chips" role="tablist" aria-label="Zeitraum">
-      <button class="chip" data-days="30"  role="tab" aria-pressed="false">30 Tage</button>
-      <button class="chip" data-days="90"  role="tab" aria-pressed="false">3 Monate</button>
-      <button class="chip" data-days="180" role="tab" aria-pressed="false">6 Monate</button>
-      <button class="chip" data-days="0"   role="tab" aria-pressed="true">Alle</button>
+      <button class="chip" data-days="30"  role="tab" aria-pressed="false"><span class="dot" aria-hidden="true"></span>30 Tage</button>
+      <button class="chip" data-days="90"  role="tab" aria-pressed="false"><span class="dot" aria-hidden="true"></span>3 Monate</button>
+      <button class="chip" data-days="180" role="tab" aria-pressed="false"><span class="dot" aria-hidden="true"></span>6 Monate</button>
+      <button class="chip" data-days="0"   role="tab" aria-pressed="true"><span class="dot" aria-hidden="true"></span>Alle</button>
     </div>
   </div>
 </div>
 
 <aside class="panel collapsed" id="panel" aria-label="Liste der Baugesuche">
   <div class="desktop-brand">
-    <p class="eyebrow">Stadt Zürich · Open Data</p>
-    <h1>Wo in Zürich gebaut wird</h1>
-    <p class="lede">Alle in der Stadt Zürich eingereichten Baugesuche – täglich aktualisiert.</p>
+    <p class="eyebrow">
+      <svg class="north" viewBox="0 0 12 14" aria-hidden="true">
+        <polygon points="6,0 11,14 6,11 1,14" fill="currentColor" />
+      </svg>
+      Stadt Zürich · Open Data
+    </p>
+    <h1>Wo in Zürich gebaut wird.</h1>
+    <p class="lede">Jedes eingereichte Baugesuch der Stadt – täglich aktualisiert aus dem amtlichen Datensatz.</p>
   </div>
 
   <button class="panel-handle" id="panelHandle" aria-controls="panel" aria-expanded="false" aria-label="Liste ein- und ausklappen"></button>
 
   <div class="panel-summary">
     <div>
-      <div class="count"><b id="shown">–</b> Baugesuche</div>
-      <span class="count-sub" id="rangeLabel">Alle verfügbaren</span>
+      <span class="count-num mono" id="shown">–</span>
+      <span class="count-label" id="rangeLabel">Alle verfügbaren · Baugesuche</span>
     </div>
     <button class="panel-toggle" id="panelToggle" aria-controls="panel">
       <span id="toggleLabel">Liste</span>
-      <svg id="toggleIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="m6 9 6 6 6-6"/>
-      </svg>
+      <svg id="toggleIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
     </button>
   </div>
 
@@ -313,37 +360,45 @@
   </div>
 
   <div class="footer">
-    Quelle: <a href="https://opendata.swiss/de/dataset/baugesuche-im-kanton-zurich" target="_blank" rel="noopener">Baugesuche im Kanton Zürich</a>, opendata.swiss.
-    Ein Baugesuch bedeutet nicht, dass tatsächlich gebaut wird.
+    Quelle: <a href="https://opendata.swiss/de/dataset/baugesuche-im-kanton-zurich" target="_blank" rel="noopener">Baugesuche im Kanton Zürich</a>, opendata.swiss. Ein eingereichtes Baugesuch heisst nicht, dass tatsächlich gebaut wird.
     <span class="stamp" id="stamp"></span>
   </div>
 </aside>
 
 <div class="detail" id="detail" role="dialog" aria-labelledby="detailTitle" aria-modal="false">
-  <button class="detail-close" id="detailClose" type="button" aria-label="Schliessen">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M18 6 6 18M6 6l12 12"/>
-    </svg>
-  </button>
-  <h3 id="detailTitle">–</h3>
-  <div id="detailBody"></div>
+  <div class="recent-strip" aria-hidden="true"></div>
+  <div class="detail-head">
+    <span>Baugesuch <span class="id" id="detailId"></span></span>
+    <button class="detail-close" id="detailClose" type="button" aria-label="Schliessen">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="detail-body">
+    <h3 id="detailTitle">–</h3>
+    <div id="detailRows"></div>
+    <a class="link" id="detailLink" target="_blank" rel="noopener" style="display:none">
+      Amtsblatt-Eintrag öffnen
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+    </a>
+  </div>
 </div>
 
 <script>
 const ZH = { center: [8.5417, 47.3769], zoom: 11.6 };
-const ACCENT = '#b5482a';
+const BLUE = '#0033a0';
+const SIGNAL = '#f5d800';
+const INK = '#0e1115';
+const NEW_DAYS = 30;
+const NEW_MS = NEW_DAYS * 864e5;
 
 const map = new maplibregl.Map({
   container: 'map',
   style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
   center: ZH.center, zoom: ZH.zoom,
   attributionControl: { compact: true },
-  cooperativeGestures: false,
 });
-map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), 'top-right');
-map.addControl(new maplibregl.GeolocateControl({
-  positionOptions: { enableHighAccuracy: true }, trackUserLocation: false, showAccuracyCircle: true,
-}), 'top-right');
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+map.addControl(new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, showAccuracyCircle: true }), 'top-right');
 
 const els = {
   q: document.getElementById('q'),
@@ -361,13 +416,16 @@ const els = {
   toggleIcon: document.getElementById('toggleIcon'),
   detail: document.getElementById('detail'),
   detailTitle: document.getElementById('detailTitle'),
-  detailBody: document.getElementById('detailBody'),
+  detailRows: document.getElementById('detailRows'),
+  detailLink: document.getElementById('detailLink'),
+  detailId: document.getElementById('detailId'),
   detailClose: document.getElementById('detailClose'),
 };
 
 let ALL = [];
 let filtered = [];
 let activeDays = 0;
+const now = Date.now();
 
 function parseDate(s) {
   if (!s) return null;
@@ -376,19 +434,39 @@ function parseDate(s) {
   const d = new Date(s); return isNaN(d) ? null : d;
 }
 function fmtDate(s) {
-  const d = parseDate(s);
-  return d ? d.toLocaleDateString('de-CH', { day:'2-digit', month:'short', year:'numeric' }) : '–';
+  const d = parseDate(s); if (!d) return '–';
+  return d.toLocaleDateString('de-CH', { day:'2-digit', month:'long', year:'numeric' });
 }
-function fmtCount(n) { return n.toLocaleString('de-CH'); }
+function fmtDateShort(s) {
+  const d = parseDate(s); if (!d) return '';
+  return d.toLocaleDateString('de-CH', { day:'2-digit', month:'2-digit' });
+}
+function fmtYear(s) {
+  const d = parseDate(s); if (!d) return '';
+  return d.getFullYear();
+}
+function fmtCount(n) {
+  return n.toLocaleString('de-CH').replace(/’/g, '.');
+}
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function truncate(s, n) { return s.length > n ? s.slice(0, n-1) + '…' : s; }
+function isNew(p) {
+  const d = parseDate(p.date);
+  return d ? (now - +d) <= NEW_MS : false;
+}
+
+function annotate(features) {
+  for (const f of features) {
+    f.properties._new = isNew(f.properties) ? 1 : 0;
+  }
+}
 
 function applyFilters() {
   const q = els.q.value.trim().toLowerCase();
   els.search.classList.toggle('has-value', q.length > 0);
 
   const days = activeDays;
-  const cutoff = days > 0 ? new Date(Date.now() - days*864e5) : null;
+  const cutoff = days > 0 ? new Date(now - days*864e5) : null;
 
   filtered = ALL.filter(f => {
     const p = f.properties;
@@ -402,15 +480,21 @@ function applyFilters() {
 
   const src = map.getSource('apps');
   if (src) src.setData({ type:'FeatureCollection', features: filtered });
-  els.shown.textContent = fmtCount(filtered.length);
-  els.rangeLabel.textContent = days === 0 ? 'Alle verfügbaren' :
-    (days === 30 ? 'Letzte 30 Tage' : days === 90 ? 'Letzte 3 Monate' : `Letzte ${days/30 | 0} Monate`);
+
+  els.shown.textContent = fmtCount(filtered.length).padStart(5, '0');
+  els.rangeLabel.textContent =
+    (days === 0 ? 'Alle verfügbaren'
+     : days === 30 ? 'Letzte 30 Tage'
+     : days === 90 ? 'Letzte 3 Monate'
+     : `Letzte ${(days/30)|0} Monate`)
+    + ' · Baugesuche';
+
   renderList();
 }
 
 function renderList() {
   if (!filtered.length) {
-    els.list.innerHTML = '<div class="empty">Keine Baugesuche gefunden.<br />Filter zurücksetzen oder Suchbegriff ändern.</div>';
+    els.list.innerHTML = '<div class="empty">Keine Baugesuche entsprechen den Filtern.<br />Suchbegriff ändern oder einen weiteren Zeitraum wählen.</div>';
     return;
   }
   const sorted = filtered.slice().sort((a, b) => {
@@ -420,17 +504,20 @@ function renderList() {
   const top = sorted.slice(0, 200);
   els.list.innerHTML = top.map((f, i) => {
     const p = f.properties;
-    const title = p.description ? p.description : (p.address || 'Baugesuch');
-    const dateStr = fmtDate(p.date);
-    return `<button class="item" data-i="${i}" role="listitem">
-      <h3>${escapeHtml(truncate(title, 110))}</h3>
-      <div class="meta">
-        <time>${dateStr}</time>
-        ${p.address ? `<span class="dot" aria-hidden="true"></span><span>${escapeHtml(truncate(p.address, 48))}</span>` : ''}
+    const title = p.description || p.address || 'Baugesuch';
+    const isNewF = p._new === 1;
+    return `<button class="item ${isNewF ? 'is-new' : ''}" data-i="${i}" role="listitem">
+      <div class="ts">
+        ${fmtDateShort(p.date)}<span class="yr">${fmtYear(p.date)}</span>
+        ${isNewF ? '<span class="new">Neu</span>' : ''}
+      </div>
+      <div>
+        <h3>${escapeHtml(truncate(title, 120))}</h3>
+        ${p.address ? `<div class="addr">${escapeHtml(truncate(p.address, 56))}</div>` : ''}
       </div>
     </button>`;
   }).join('') + (filtered.length > top.length
-    ? `<div class="more">Weitere ${fmtCount(filtered.length - top.length)} Einträge – Zeitraum eingrenzen oder reinzoomen.</div>` : '');
+    ? `<div class="more">+ ${fmtCount(filtered.length - top.length)} weitere · Zeitraum eingrenzen oder reinzoomen</div>` : '');
 
   els.list.querySelectorAll('.item').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -452,26 +539,29 @@ function showDetail(f) {
   const p = f.properties;
   const title = p.description || p.address || 'Baugesuch';
   els.detailTitle.textContent = title;
+  els.detail.classList.toggle('is-new', p._new === 1);
+
+  const shortId = p.id ? String(p.id).split('-')[0] : '';
+  els.detailId.textContent = shortId ? `#${shortId}` : '';
+
   const rows = [];
-  if (p.address) rows.push(`<p><span class="k">Adresse:</span>${escapeHtml(p.address)}</p>`);
-  rows.push(`<p><span class="k">Eingereicht:</span>${fmtDate(p.date)}</p>`);
-  if (p.url) rows.push(`<a class="link" href="${escapeHtml(p.url)}" target="_blank" rel="noopener">
-    Amtliche Publikation öffnen
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
-  </a>`);
-  els.detailBody.innerHTML = rows.join('');
+  if (p.address) rows.push(`<div class="detail-row"><span class="k">Adresse</span><span class="v">${escapeHtml(p.address)}</span></div>`);
+  rows.push(`<div class="detail-row"><span class="k">Eingereicht</span><span class="v mono">${fmtDate(p.date)}</span></div>`);
+  els.detailRows.innerHTML = rows.join('');
+
+  if (p.url) { els.detailLink.href = p.url; els.detailLink.style.display = 'inline-flex'; }
+  else els.detailLink.style.display = 'none';
+
   els.detail.classList.add('show');
 }
 
 function hideDetail() { els.detail.classList.remove('show'); }
 els.detailClose.addEventListener('click', hideDetail);
 map.on('click', e => {
-  // dismiss when clicking empty map
   const f = map.queryRenderedFeatures(e.point, { layers: ['apps-unclustered', 'apps-clusters'] });
   if (!f.length) hideDetail();
 });
 
-/* Panel (mobile drawer) */
 function togglePanel(force) {
   const expand = force === true || (force === undefined && els.panel.classList.contains('collapsed'));
   els.panel.classList.toggle('collapsed', !expand);
@@ -483,39 +573,31 @@ function collapsePanel() { togglePanel(false); }
 els.panelHandle.addEventListener('click', () => togglePanel());
 els.panelToggle.addEventListener('click', () => togglePanel());
 
-/* Search */
 let qTimer;
-els.q.addEventListener('input', () => {
-  clearTimeout(qTimer);
-  qTimer = setTimeout(applyFilters, 120);
-});
+els.q.addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(applyFilters, 120); });
 els.qClear.addEventListener('click', () => { els.q.value = ''; els.q.focus(); applyFilters(); });
+els.chips.forEach(chip => chip.addEventListener('click', () => {
+  activeDays = +chip.dataset.days;
+  els.chips.forEach(c => c.setAttribute('aria-pressed', String(c === chip)));
+  applyFilters();
+}));
 
-/* Chips */
-els.chips.forEach(chip => {
-  chip.addEventListener('click', () => {
-    activeDays = +chip.dataset.days;
-    els.chips.forEach(c => c.setAttribute('aria-pressed', String(c === chip)));
-    applyFilters();
-  });
-});
-
-/* Map data + clustering */
 map.on('load', async () => {
   map.addSource('apps', {
-    type: 'geojson',
-    data: { type: 'FeatureCollection', features: [] },
+    type: 'geojson', data: { type:'FeatureCollection', features: [] },
     cluster: true, clusterMaxZoom: 14, clusterRadius: 50,
+    clusterProperties: { new_count: ['+', ['get', '_new']] },
   });
 
+  /* clusters: blue base, yellow ring if it contains any "new" application */
   map.addLayer({
     id: 'apps-clusters', type: 'circle', source: 'apps', filter: ['has', 'point_count'],
     paint: {
-      'circle-color': ACCENT,
-      'circle-opacity': 0.85,
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-width': 2,
-      'circle-radius': ['step', ['get', 'point_count'], 16, 25, 22, 100, 28, 500, 36],
+      'circle-color': BLUE,
+      'circle-stroke-color': ['case', ['>', ['get', 'new_count'], 0], SIGNAL, '#ffffff'],
+      'circle-stroke-width': ['case', ['>', ['get', 'new_count'], 0], 3, 2],
+      'circle-radius': ['step', ['get', 'point_count'], 18, 25, 24, 100, 30, 500, 38],
+      'circle-opacity': 0.92,
     },
   });
   map.addLayer({
@@ -527,14 +609,16 @@ map.on('load', async () => {
     },
     paint: { 'text-color': '#ffffff' },
   });
+
+  /* unclustered: yellow if recent, blue otherwise */
   map.addLayer({
     id: 'apps-unclustered', type: 'circle', source: 'apps', filter: ['!', ['has', 'point_count']],
     paint: {
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 4, 14, 6.5, 17, 10],
-      'circle-color': ACCENT,
-      'circle-opacity': 0.92,
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-width': 1.4,
+      'circle-color': ['case', ['==', ['get', '_new'], 1], SIGNAL, BLUE],
+      'circle-stroke-color': INK,
+      'circle-stroke-width': 1.2,
+      'circle-opacity': 0.95,
     },
   });
 
@@ -546,9 +630,8 @@ map.on('load', async () => {
     });
   });
   map.on('click', 'apps-unclustered', e => {
-    const f = e.features[0];
-    flyToFeature(f);
-    showDetail(f);
+    const f = ALL.find(x => x.properties.id === e.features[0].properties.id) || e.features[0];
+    flyToFeature(f); showDetail(f);
   });
   for (const layer of ['apps-clusters', 'apps-unclustered']) {
     map.on('mouseenter', layer, () => map.getCanvas().style.cursor = 'pointer');
@@ -561,19 +644,19 @@ map.on('load', async () => {
       fetch('data/meta.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
     ALL = geo.features || [];
+    annotate(ALL);
     if (meta && meta.updated_utc) {
       const d = new Date(meta.updated_utc);
-      els.stamp.textContent = `Stand: ${d.toLocaleDateString('de-CH', { day:'2-digit', month:'long', year:'numeric' })}.`;
+      els.stamp.textContent = `Stand ${d.toLocaleDateString('de-CH', { day:'2-digit', month:'short', year:'numeric' })}`;
     }
     applyFilters();
   } catch (err) {
     els.list.innerHTML = '<div class="empty">Daten konnten nicht geladen werden.<br />Bitte später erneut versuchen.</div>';
-    els.shown.textContent = '0';
+    els.shown.textContent = '00000';
     console.error(err);
   }
 });
 
-/* Open drawer to half-height after first interaction hint on mobile */
 window.addEventListener('keydown', e => { if (e.key === 'Escape') { hideDetail(); collapsePanel(); }});
 </script>
 </body>
