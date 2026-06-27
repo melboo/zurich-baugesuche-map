@@ -1,193 +1,397 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Zürich Baugesuche — building applications map</title>
+<meta name="theme-color" content="#f6f4ee" />
+<title>Baugesuche in der Stadt Zürich</title>
+<meta name="description" content="Wo in Zürich gebaut wird – tägliche Karte aller eingereichten Baugesuche." />
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
   :root {
     --ink: #1b1d1a;
     --paper: #f6f4ee;
+    --surface: #ffffff;
     --line: #d8d3c6;
-    --accent: #b5482a;     /* Zürich brick / construction red-clay */
+    --line-soft: #ebe6da;
+    --accent: #b5482a;
     --accent-soft: #e8c9bd;
+    --accent-deep: #7a2c17;
     --muted: #6f6b60;
-    --pin: #b5482a;
-    --pin-stroke: #ffffff;
-    --shadow: 0 1px 2px rgba(27,29,26,.08), 0 8px 24px rgba(27,29,26,.10);
+    --shadow-1: 0 1px 2px rgba(27,29,26,.08);
+    --shadow-2: 0 8px 24px rgba(27,29,26,.10);
+    --shadow-3: 0 -8px 28px rgba(27,29,26,.10);
+    --radius: 12px;
+    --radius-pill: 999px;
+    --tap: 44px;
     font-synthesis: none;
   }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #ece8df;
+      --paper: #15171a;
+      --surface: #1d2024;
+      --line: #2d3036;
+      --line-soft: #24272c;
+      --muted: #9b958a;
+      --accent: #e07350;
+      --accent-soft: #4a2418;
+      --accent-deep: #ffd6c5;
+    }
+  }
+
   * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
+  html, body { height: 100%; margin: 0; overscroll-behavior: none; }
   body {
-    font-family: ui-sans-serif, "Inter", "Helvetica Neue", Arial, system-ui, sans-serif;
-    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter",
+                 "Helvetica Neue", system-ui, sans-serif;
+    color: var(--ink); background: var(--paper);
+    -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
+
+  /* --- Map (always full bleed) --- */
+  #map { position: fixed; inset: 0; background: var(--paper); }
+  .maplibregl-ctrl-bottom-right { margin-bottom: calc(env(safe-area-inset-bottom) + 142px) !important; }
+  .maplibregl-ctrl-bottom-left { margin-bottom: calc(env(safe-area-inset-bottom) + 142px) !important; }
+
+  /* --- Top search bar (floats over map) --- */
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+    padding: calc(env(safe-area-inset-top) + 10px) 12px 8px;
+    pointer-events: none;
+  }
+  .topbar-inner { display: flex; flex-direction: column; gap: 8px; pointer-events: auto; max-width: 720px; margin: 0 auto; }
+  .search {
+    display: flex; align-items: center; gap: 8px;
+    height: var(--tap);
+    background: var(--surface);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-1), var(--shadow-2);
+    padding: 0 6px 0 14px;
+    border: 1px solid var(--line-soft);
+  }
+  .search svg { flex: 0 0 auto; color: var(--muted); }
+  .search input {
+    flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink);
+    font-size: 15px; height: 100%; outline: none;
+  }
+  .search input::placeholder { color: var(--muted); }
+  .search-clear {
+    flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+    color: var(--muted);
+  }
+  .search.has-value .search-clear { display: inline-flex; }
+  .search-clear:hover, .search-clear:focus-visible { background: var(--line-soft); color: var(--ink); }
+
+  /* Filter chips */
+  .chips {
+    display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+    padding: 2px 2px 4px; margin: 0 -2px;
+  }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip {
+    flex: 0 0 auto; height: 34px; padding: 0 14px;
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--line); border-radius: var(--radius-pill);
+    font-size: 13px; font-weight: 500; letter-spacing: -.01em;
+    transition: background .15s, color .15s, border-color .15s;
+    box-shadow: var(--shadow-1);
+    display: inline-flex; align-items: center;
+  }
+  .chip:hover { border-color: var(--ink); }
+  .chip[aria-pressed="true"] {
+    background: var(--ink); color: var(--paper); border-color: var(--ink);
+  }
+
+  /* --- Bottom drawer (mobile) / Sidebar (desktop) --- */
+  .panel {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 15;
     background: var(--paper);
-    -webkit-font-smoothing: antialiased;
+    border-top-left-radius: 18px; border-top-right-radius: 18px;
+    box-shadow: var(--shadow-3);
+    display: flex; flex-direction: column;
+    max-height: 85dvh;
+    transition: transform .28s cubic-bezier(.2,.7,.2,1);
+    padding-bottom: env(safe-area-inset-bottom);
   }
-  #app { display: grid; grid-template-columns: 360px 1fr; height: 100dvh; }
+  .panel.collapsed { transform: translateY(calc(100% - 122px)); }
 
-  /* Sidebar */
-  aside {
-    border-right: 1px solid var(--line);
-    background: var(--paper);
-    display: flex; flex-direction: column; min-height: 0;
+  .panel-handle {
+    width: 100%; padding: 8px 0 4px; display: flex; flex-direction: column;
+    align-items: center; flex: 0 0 auto; -webkit-tap-highlight-color: transparent;
   }
-  header.brand { padding: 22px 22px 14px; border-bottom: 1px solid var(--line); }
-  .eyebrow {
-    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
-    color: var(--accent); font-weight: 650; margin: 0 0 8px;
+  .panel-handle::before {
+    content: ""; width: 38px; height: 4px; border-radius: 4px;
+    background: var(--line); display: block; margin-bottom: 6px;
   }
-  h1 {
-    font-family: "Georgia", "Times New Roman", serif;
-    font-size: 25px; line-height: 1.12; margin: 0 0 8px; font-weight: 600;
-    letter-spacing: -.01em;
+  .panel-summary {
+    width: 100%; padding: 4px 18px 12px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    flex: 0 0 auto;
   }
-  .lede { font-size: 13px; line-height: 1.5; color: var(--muted); margin: 0; }
-
-  .controls { padding: 16px 22px; border-bottom: 1px solid var(--line); display: grid; gap: 14px; }
-  .field label {
-    display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
-    color: var(--muted); margin-bottom: 6px; font-weight: 600;
-  }
-  .field input[type="search"], .field select {
-    width: 100%; padding: 9px 11px; font-size: 13px; color: var(--ink);
-    background: #fff; border: 1px solid var(--line); border-radius: 8px;
-    appearance: none; -webkit-appearance: none;
-  }
-  .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .rangeRow { display: flex; align-items: center; gap: 10px; }
-  .rangeRow input[type="range"] { flex: 1; accent-color: var(--accent); }
-  .rangeVal { font-size: 12px; color: var(--ink); min-width: 92px; text-align: right; font-variant-numeric: tabular-nums; }
-
-  .count { padding: 12px 22px; font-size: 13px; color: var(--ink); border-bottom: 1px solid var(--line); }
+  .count { font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: -.01em; }
   .count b { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .count-sub { display: block; font-size: 11.5px; font-weight: 500; color: var(--muted); margin-top: 2px; }
+  .panel-toggle {
+    height: 36px; padding: 0 14px;
+    background: var(--line-soft); color: var(--ink);
+    border-radius: var(--radius-pill); font-size: 13px; font-weight: 500;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .panel-toggle:hover { background: var(--line); }
 
-  .list { overflow-y: auto; min-height: 0; flex: 1; }
+  .list { overflow-y: auto; flex: 1; min-height: 0; -webkit-overflow-scrolling: touch; }
   .item {
-    padding: 13px 22px; border-bottom: 1px solid var(--line); cursor: pointer;
-    transition: background .12s ease;
+    padding: 14px 18px; border-top: 1px solid var(--line-soft);
+    display: block; width: 100%; text-align: left;
+    -webkit-tap-highlight-color: transparent;
+    transition: background .12s;
   }
-  .item:hover, .item.active { background: #efe9dc; }
-  .item h3 { margin: 0 0 4px; font-size: 13.5px; font-weight: 600; line-height: 1.3; }
-  .item .meta { font-size: 11.5px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
-  .tag {
-    display: inline-block; font-size: 10.5px; padding: 1px 7px; border-radius: 999px;
-    background: var(--accent-soft); color: #7a2c17; font-weight: 600; letter-spacing: .02em;
+  .item:first-child { border-top: 0; }
+  .item:hover, .item.active, .item:focus-visible { background: var(--line-soft); outline: none; }
+  .item h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; line-height: 1.35; color: var(--ink); }
+  .item .meta {
+    font-size: 12px; color: var(--muted);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
+  .item .meta time { font-variant-numeric: tabular-nums; }
+  .item .meta .dot { width: 3px; height: 3px; background: var(--muted); border-radius: 50%; }
 
-  footer.note { padding: 12px 22px 16px; font-size: 11px; color: var(--muted); line-height: 1.45; border-top: 1px solid var(--line); }
-  footer.note a { color: var(--accent); }
-
-  /* Map */
-  #map { position: relative; height: 100%; }
-  .maplibregl-popup-content {
-    font-family: inherit; border-radius: 10px; padding: 14px 15px; box-shadow: var(--shadow);
-    border: 1px solid var(--line);
+  .empty, .loading {
+    padding: 28px 22px; color: var(--muted); font-size: 13.5px; line-height: 1.55; text-align: center;
   }
-  .popup h3 { margin: 0 0 6px; font-size: 14px; }
-  .popup p { margin: 3px 0; font-size: 12.5px; color: var(--ink); }
-  .popup .k { color: var(--muted); }
+  .skel { display: flex; flex-direction: column; gap: 4px; padding: 14px 18px; border-top: 1px solid var(--line-soft); }
+  .skel .b { background: var(--line-soft); border-radius: 6px; height: 12px; animation: pulse 1.4s ease-in-out infinite; }
+  .skel .b.short { width: 35%; height: 10px; }
+  .skel .b.med { width: 75%; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 
-  .empty { padding: 30px 22px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+  .more { padding: 16px 22px; color: var(--muted); font-size: 12.5px; text-align: center; border-top: 1px solid var(--line-soft); }
 
-  @media (max-width: 760px) {
-    #app { grid-template-columns: 1fr; grid-template-rows: 44dvh 56dvh; }
-    aside { border-right: 0; border-bottom: 1px solid var(--line); }
+  /* Footer pinned at bottom of list */
+  .footer {
+    border-top: 1px solid var(--line-soft); padding: 14px 18px;
+    font-size: 11.5px; color: var(--muted); line-height: 1.5;
+  }
+  .footer a { color: var(--accent); }
+  .footer .stamp { display: block; margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+  /* --- Detail card (replaces MapLibre popup on mobile) --- */
+  .detail {
+    position: fixed; left: 12px; right: 12px;
+    bottom: calc(env(safe-area-inset-bottom) + 16px);
+    background: var(--surface);
+    border-radius: var(--radius); box-shadow: var(--shadow-2);
+    padding: 16px 16px 14px; z-index: 30;
+    border: 1px solid var(--line-soft);
+    transform: translateY(120%); transition: transform .26s cubic-bezier(.2,.7,.2,1);
+    max-width: 460px; margin: 0 auto;
+  }
+  .detail.show { transform: translateY(0); }
+  .detail-close {
+    position: absolute; top: 8px; right: 8px;
+    width: 32px; height: 32px; border-radius: 50%; color: var(--muted);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .detail-close:hover { background: var(--line-soft); color: var(--ink); }
+  .detail h3 { margin: 0 28px 8px 0; font-size: 15.5px; font-weight: 600; line-height: 1.35; }
+  .detail p { margin: 4px 0; font-size: 13px; color: var(--ink); }
+  .detail .k { color: var(--muted); margin-right: 4px; }
+  .detail .link {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
+    color: var(--accent); font-weight: 500; font-size: 13px;
+    text-decoration: none;
+  }
+  .detail .link:hover { text-decoration: underline; }
+
+  /* --- Desktop: sidebar layout --- */
+  @media (min-width: 900px) {
+    #map { left: 400px; }
+    .topbar { left: 400px; }
+    .topbar-inner { max-width: none; }
+    .panel {
+      position: fixed; top: 0; left: 0; bottom: 0; right: auto;
+      width: 400px; max-height: none; border-radius: 0;
+      border-right: 1px solid var(--line); box-shadow: none;
+      transform: none !important;
+      padding-bottom: 0;
+    }
+    .panel-handle { display: none; }
+    .panel-summary {
+      padding: 20px 22px 14px; border-bottom: 1px solid var(--line);
+      flex-direction: column; align-items: flex-start; gap: 4px;
+    }
+    .panel-toggle { display: none; }
+    .desktop-brand {
+      display: block; padding: 22px 22px 12px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .desktop-brand .eyebrow {
+      font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--accent); font-weight: 650; margin: 0 0 8px;
+    }
+    .desktop-brand h1 {
+      font-family: "Georgia", "Times New Roman", serif;
+      font-size: 24px; line-height: 1.15; margin: 0 0 6px; font-weight: 600;
+    }
+    .desktop-brand .lede { font-size: 13px; color: var(--muted); margin: 0; line-height: 1.5; }
+    .detail {
+      position: absolute; left: 420px; right: auto; bottom: 20px;
+      width: 360px; max-width: none; margin: 0;
+    }
+    .maplibregl-ctrl-bottom-right { margin-bottom: 12px !important; }
+    .maplibregl-ctrl-bottom-left { margin-bottom: 12px !important; }
+  }
+  .desktop-brand { display: none; }
+
+  /* --- A11y --- */
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
   }
 </style>
 </head>
 <body>
-<div id="app">
-  <aside>
-    <header class="brand">
-      <p class="eyebrow">Kanton Zürich · Open Data</p>
-      <h1>Where Zürich is building</h1>
-      <p class="lede">Building applications (Baugesuche) filed in the city of Zürich. Each pin is a filed project — proposed, under review, or approved. Updated daily.</p>
-    </header>
 
-    <div class="controls">
-      <div class="field">
-        <label for="q">Search description or address</label>
-        <input id="q" type="search" placeholder="e.g. Neubau, Wohnungen, Aussersihl" autocomplete="off" />
-      </div>
-      <div class="field">
-        <label for="status">Status</label>
-        <select id="status"><option value="">All statuses</option></select>
-      </div>
-      <div class="field">
-        <label for="since">Filed within</label>
-        <div class="rangeRow">
-          <input id="since" type="range" min="0" max="365" value="365" step="5" />
-          <span class="rangeVal" id="sinceVal">all available</span>
-        </div>
-      </div>
+<div id="map" role="application" aria-label="Karte der Baugesuche"></div>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="search" id="search">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>
+      </svg>
+      <input id="q" type="search" inputmode="search" enterkeyhint="search"
+             placeholder="Adresse oder Projekt suchen" aria-label="Baugesuche durchsuchen" autocomplete="off" />
+      <button class="search-clear" id="qClear" type="button" aria-label="Suche löschen">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 6 6 18M6 6l12 12"/>
+        </svg>
+      </button>
     </div>
+    <div class="chips" role="tablist" aria-label="Zeitraum">
+      <button class="chip" data-days="30"  role="tab" aria-pressed="false">30 Tage</button>
+      <button class="chip" data-days="90"  role="tab" aria-pressed="false">3 Monate</button>
+      <button class="chip" data-days="180" role="tab" aria-pressed="false">6 Monate</button>
+      <button class="chip" data-days="0"   role="tab" aria-pressed="true">Alle</button>
+    </div>
+  </div>
+</div>
 
-    <div class="count">Showing <b id="shown">0</b> of <span id="total">0</span> applications</div>
-    <div class="list" id="list"></div>
-    <footer class="note">
-      Source: <a href="https://opendata.swiss/de/dataset/baugesuche-im-kanton-zurich" target="_blank" rel="noopener">Baugesuche im Kanton Zürich</a>, opendata.swiss.
-      A filed application does not mean construction has started or that a project was realised.
-      <span id="stamp"></span>
-    </footer>
-  </aside>
+<aside class="panel collapsed" id="panel" aria-label="Liste der Baugesuche">
+  <div class="desktop-brand">
+    <p class="eyebrow">Stadt Zürich · Open Data</p>
+    <h1>Wo in Zürich gebaut wird</h1>
+    <p class="lede">Alle in der Stadt Zürich eingereichten Baugesuche – täglich aktualisiert.</p>
+  </div>
 
-  <div id="map"></div>
+  <button class="panel-handle" id="panelHandle" aria-controls="panel" aria-expanded="false" aria-label="Liste ein- und ausklappen"></button>
+
+  <div class="panel-summary">
+    <div>
+      <div class="count"><b id="shown">–</b> Baugesuche</div>
+      <span class="count-sub" id="rangeLabel">Alle verfügbaren</span>
+    </div>
+    <button class="panel-toggle" id="panelToggle" aria-controls="panel">
+      <span id="toggleLabel">Liste</span>
+      <svg id="toggleIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="m6 9 6 6 6-6"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="list" id="list" role="list">
+    <div class="skel" aria-hidden="true"><div class="b med"></div><div class="b short"></div></div>
+    <div class="skel" aria-hidden="true"><div class="b med"></div><div class="b short"></div></div>
+    <div class="skel" aria-hidden="true"><div class="b med"></div><div class="b short"></div></div>
+  </div>
+
+  <div class="footer">
+    Quelle: <a href="https://opendata.swiss/de/dataset/baugesuche-im-kanton-zurich" target="_blank" rel="noopener">Baugesuche im Kanton Zürich</a>, opendata.swiss.
+    Ein Baugesuch bedeutet nicht, dass tatsächlich gebaut wird.
+    <span class="stamp" id="stamp"></span>
+  </div>
+</aside>
+
+<div class="detail" id="detail" role="dialog" aria-labelledby="detailTitle" aria-modal="false">
+  <button class="detail-close" id="detailClose" type="button" aria-label="Schliessen">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 6 6 18M6 6l12 12"/>
+    </svg>
+  </button>
+  <h3 id="detailTitle">–</h3>
+  <div id="detailBody"></div>
 </div>
 
 <script>
 const ZH = { center: [8.5417, 47.3769], zoom: 11.6 };
+const ACCENT = '#b5482a';
 
 const map = new maplibregl.Map({
   container: 'map',
   style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-  center: ZH.center, zoom: ZH.zoom, attributionControl: true,
+  center: ZH.center, zoom: ZH.zoom,
+  attributionControl: { compact: true },
+  cooperativeGestures: false,
 });
-map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-
-let ALL = [];        // all features
-let popup = null;
+map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), 'top-right');
+map.addControl(new maplibregl.GeolocateControl({
+  positionOptions: { enableHighAccuracy: true }, trackUserLocation: false, showAccuracyCircle: true,
+}), 'top-right');
 
 const els = {
   q: document.getElementById('q'),
-  status: document.getElementById('status'),
-  since: document.getElementById('since'),
-  sinceVal: document.getElementById('sinceVal'),
+  qClear: document.getElementById('qClear'),
+  search: document.getElementById('search'),
+  chips: [...document.querySelectorAll('.chip')],
   shown: document.getElementById('shown'),
-  total: document.getElementById('total'),
+  rangeLabel: document.getElementById('rangeLabel'),
   list: document.getElementById('list'),
   stamp: document.getElementById('stamp'),
+  panel: document.getElementById('panel'),
+  panelHandle: document.getElementById('panelHandle'),
+  panelToggle: document.getElementById('panelToggle'),
+  toggleLabel: document.getElementById('toggleLabel'),
+  toggleIcon: document.getElementById('toggleIcon'),
+  detail: document.getElementById('detail'),
+  detailTitle: document.getElementById('detailTitle'),
+  detailBody: document.getElementById('detailBody'),
+  detailClose: document.getElementById('detailClose'),
 };
+
+let ALL = [];
+let filtered = [];
+let activeDays = 0;
 
 function parseDate(s) {
   if (!s) return null;
-  // accept YYYY-MM-DD or DD.MM.YYYY
-  let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
   if (m) return new Date(+m[1], +m[2]-1, +m[3]);
-  m = /^(\d{2})\.(\d{2})\.(\d{4})/.exec(s);
-  if (m) return new Date(+m[3], +m[2]-1, +m[1]);
   const d = new Date(s); return isNaN(d) ? null : d;
 }
-
 function fmtDate(s) {
   const d = parseDate(s);
-  if (!d) return s || '—';
-  return d.toLocaleDateString('de-CH', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d ? d.toLocaleDateString('de-CH', { day:'2-digit', month:'short', year:'numeric' }) : '–';
 }
+function fmtCount(n) { return n.toLocaleString('de-CH'); }
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function truncate(s, n) { return s.length > n ? s.slice(0, n-1) + '…' : s; }
 
 function applyFilters() {
   const q = els.q.value.trim().toLowerCase();
-  const status = els.status.value;
-  const days = +els.since.value;
-  const cutoff = days >= 365 ? null : new Date(Date.now() - days*864e5);
-  els.sinceVal.textContent = days >= 365 ? 'all available' : `last ${days} days`;
+  els.search.classList.toggle('has-value', q.length > 0);
 
-  const out = ALL.filter(f => {
+  const days = activeDays;
+  const cutoff = days > 0 ? new Date(Date.now() - days*864e5) : null;
+
+  filtered = ALL.filter(f => {
     const p = f.properties;
-    if (status && p.status !== status) return false;
     if (cutoff) { const d = parseDate(p.date); if (!d || d < cutoff) return false; }
     if (q) {
       const hay = `${p.description||''} ${p.address||''}`.toLowerCase();
@@ -196,105 +400,181 @@ function applyFilters() {
     return true;
   });
 
-  map.getSource('apps').setData({ type:'FeatureCollection', features: out });
-  els.shown.textContent = out.length;
-  renderList(out);
+  const src = map.getSource('apps');
+  if (src) src.setData({ type:'FeatureCollection', features: filtered });
+  els.shown.textContent = fmtCount(filtered.length);
+  els.rangeLabel.textContent = days === 0 ? 'Alle verfügbaren' :
+    (days === 30 ? 'Letzte 30 Tage' : days === 90 ? 'Letzte 3 Monate' : `Letzte ${days/30 | 0} Monate`);
+  renderList();
 }
 
-function renderList(features) {
-  const top = features.slice(0, 300);
-  if (!features.length) {
-    els.list.innerHTML = '<div class="empty">No applications match these filters. Try widening the date range or clearing the search.</div>';
+function renderList() {
+  if (!filtered.length) {
+    els.list.innerHTML = '<div class="empty">Keine Baugesuche gefunden.<br />Filter zurücksetzen oder Suchbegriff ändern.</div>';
     return;
   }
+  const sorted = filtered.slice().sort((a, b) => {
+    const da = parseDate(a.properties.date), db = parseDate(b.properties.date);
+    return (db ? +db : 0) - (da ? +da : 0);
+  });
+  const top = sorted.slice(0, 200);
   els.list.innerHTML = top.map((f, i) => {
     const p = f.properties;
-    const title = p.description ? p.description : (p.address || 'Building application');
-    return `<div class="item" data-i="${i}">
-      <h3>${escapeHtml(truncate(title, 90))}</h3>
+    const title = p.description ? p.description : (p.address || 'Baugesuch');
+    const dateStr = fmtDate(p.date);
+    return `<button class="item" data-i="${i}" role="listitem">
+      <h3>${escapeHtml(truncate(title, 110))}</h3>
       <div class="meta">
-        ${p.status ? `<span class="tag">${escapeHtml(p.status)}</span>` : ''}
-        <span>${fmtDate(p.date)}</span>
-        ${p.address ? `<span>${escapeHtml(truncate(p.address, 40))}</span>` : ''}
+        <time>${dateStr}</time>
+        ${p.address ? `<span class="dot" aria-hidden="true"></span><span>${escapeHtml(truncate(p.address, 48))}</span>` : ''}
       </div>
-    </div>`;
-  }).join('') + (features.length > top.length
-    ? `<div class="empty">+ ${features.length - top.length} more — zoom or filter to narrow down.</div>` : '');
+    </button>`;
+  }).join('') + (filtered.length > top.length
+    ? `<div class="more">Weitere ${fmtCount(filtered.length - top.length)} Einträge – Zeitraum eingrenzen oder reinzoomen.</div>` : '');
 
-  [...els.list.querySelectorAll('.item')].forEach(el => {
-    el.addEventListener('click', () => {
-      const f = top[+el.dataset.i];
-      const c = f.geometry.coordinates;
-      map.flyTo({ center: c, zoom: 16, speed: 1.2 });
-      showPopup(f);
+  els.list.querySelectorAll('.item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const f = top[+btn.dataset.i];
+      flyToFeature(f);
+      showDetail(f);
       els.list.querySelectorAll('.item').forEach(x => x.classList.remove('active'));
-      el.classList.add('active');
+      btn.classList.add('active');
+      collapsePanel();
     });
   });
 }
 
-function showPopup(f) {
-  const p = f.properties;
-  if (popup) popup.remove();
-  popup = new maplibregl.Popup({ closeButton: true, maxWidth: '300px' })
-    .setLngLat(f.geometry.coordinates)
-    .setHTML(`<div class="popup">
-      <h3>${escapeHtml(p.description || 'Building application')}</h3>
-      ${p.address ? `<p><span class="k">Location:</span> ${escapeHtml(p.address)}</p>` : ''}
-      <p><span class="k">Filed:</span> ${fmtDate(p.date)}</p>
-      ${p.status ? `<p><span class="k">Status:</span> ${escapeHtml(p.status)}</p>` : ''}
-      ${p.url ? `<p><a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">Open official record →</a></p>` : ''}
-    </div>`)
-    .addTo(map);
+function flyToFeature(f) {
+  map.flyTo({ center: f.geometry.coordinates, zoom: 16.5, speed: 1.3, essential: true });
 }
 
-function truncate(s, n) { return s.length > n ? s.slice(0, n-1) + '…' : s; }
-function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function showDetail(f) {
+  const p = f.properties;
+  const title = p.description || p.address || 'Baugesuch';
+  els.detailTitle.textContent = title;
+  const rows = [];
+  if (p.address) rows.push(`<p><span class="k">Adresse:</span>${escapeHtml(p.address)}</p>`);
+  rows.push(`<p><span class="k">Eingereicht:</span>${fmtDate(p.date)}</p>`);
+  if (p.url) rows.push(`<a class="link" href="${escapeHtml(p.url)}" target="_blank" rel="noopener">
+    Amtliche Publikation öffnen
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+  </a>`);
+  els.detailBody.innerHTML = rows.join('');
+  els.detail.classList.add('show');
+}
 
-map.on('load', async () => {
-  map.addSource('apps', { type:'geojson', data:{type:'FeatureCollection',features:[]} });
-  map.addLayer({
-    id:'apps-circles', type:'circle', source:'apps',
-    paint:{
-      'circle-radius':['interpolate',['linear'],['zoom'],10,3.5,14,6,17,9],
-      'circle-color':'#b5482a',
-      'circle-opacity':0.82,
-      'circle-stroke-color':'#ffffff',
-      'circle-stroke-width':1.2,
-    }
+function hideDetail() { els.detail.classList.remove('show'); }
+els.detailClose.addEventListener('click', hideDetail);
+map.on('click', e => {
+  // dismiss when clicking empty map
+  const f = map.queryRenderedFeatures(e.point, { layers: ['apps-unclustered', 'apps-clusters'] });
+  if (!f.length) hideDetail();
+});
+
+/* Panel (mobile drawer) */
+function togglePanel(force) {
+  const expand = force === true || (force === undefined && els.panel.classList.contains('collapsed'));
+  els.panel.classList.toggle('collapsed', !expand);
+  els.panelHandle.setAttribute('aria-expanded', String(expand));
+  els.toggleLabel.textContent = expand ? 'Karte' : 'Liste';
+  els.toggleIcon.style.transform = expand ? 'rotate(180deg)' : '';
+}
+function collapsePanel() { togglePanel(false); }
+els.panelHandle.addEventListener('click', () => togglePanel());
+els.panelToggle.addEventListener('click', () => togglePanel());
+
+/* Search */
+let qTimer;
+els.q.addEventListener('input', () => {
+  clearTimeout(qTimer);
+  qTimer = setTimeout(applyFilters, 120);
+});
+els.qClear.addEventListener('click', () => { els.q.value = ''; els.q.focus(); applyFilters(); });
+
+/* Chips */
+els.chips.forEach(chip => {
+  chip.addEventListener('click', () => {
+    activeDays = +chip.dataset.days;
+    els.chips.forEach(c => c.setAttribute('aria-pressed', String(c === chip)));
+    applyFilters();
   });
-  map.on('click','apps-circles', e => showPopup(e.features[0]));
-  map.on('mouseenter','apps-circles', () => map.getCanvas().style.cursor='pointer');
-  map.on('mouseleave','apps-circles', () => map.getCanvas().style.cursor='');
+});
+
+/* Map data + clustering */
+map.on('load', async () => {
+  map.addSource('apps', {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [] },
+    cluster: true, clusterMaxZoom: 14, clusterRadius: 50,
+  });
+
+  map.addLayer({
+    id: 'apps-clusters', type: 'circle', source: 'apps', filter: ['has', 'point_count'],
+    paint: {
+      'circle-color': ACCENT,
+      'circle-opacity': 0.85,
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 2,
+      'circle-radius': ['step', ['get', 'point_count'], 16, 25, 22, 100, 28, 500, 36],
+    },
+  });
+  map.addLayer({
+    id: 'apps-cluster-count', type: 'symbol', source: 'apps', filter: ['has', 'point_count'],
+    layout: {
+      'text-field': '{point_count_abbreviated}',
+      'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+      'text-size': 13,
+    },
+    paint: { 'text-color': '#ffffff' },
+  });
+  map.addLayer({
+    id: 'apps-unclustered', type: 'circle', source: 'apps', filter: ['!', ['has', 'point_count']],
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 4, 14, 6.5, 17, 10],
+      'circle-color': ACCENT,
+      'circle-opacity': 0.92,
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 1.4,
+    },
+  });
+
+  map.on('click', 'apps-clusters', e => {
+    const f = e.features[0];
+    map.getSource('apps').getClusterExpansionZoom(f.properties.cluster_id, (err, zoom) => {
+      if (err) return;
+      map.easeTo({ center: f.geometry.coordinates, zoom, duration: 500 });
+    });
+  });
+  map.on('click', 'apps-unclustered', e => {
+    const f = e.features[0];
+    flyToFeature(f);
+    showDetail(f);
+  });
+  for (const layer of ['apps-clusters', 'apps-unclustered']) {
+    map.on('mouseenter', layer, () => map.getCanvas().style.cursor = 'pointer');
+    map.on('mouseleave', layer, () => map.getCanvas().style.cursor = '');
+  }
 
   try {
     const [geo, meta] = await Promise.all([
-      fetch('data/baugesuche_zuerich.geojson').then(r => r.json()),
-      fetch('data/meta.json').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('data/baugesuche_zuerich.geojson', { cache: 'no-cache' }).then(r => r.json()),
+      fetch('data/meta.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
     ALL = geo.features || [];
-    els.total.textContent = ALL.length;
-
-    const statuses = [...new Set(ALL.map(f => f.properties.status).filter(Boolean))].sort();
-    for (const s of statuses) {
-      const o = document.createElement('option'); o.value = s; o.textContent = s;
-      els.status.appendChild(o);
-    }
     if (meta && meta.updated_utc) {
-      els.stamp.textContent = ` Last refreshed ${new Date(meta.updated_utc).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}.`;
+      const d = new Date(meta.updated_utc);
+      els.stamp.textContent = `Stand: ${d.toLocaleDateString('de-CH', { day:'2-digit', month:'long', year:'numeric' })}.`;
     }
     applyFilters();
   } catch (err) {
-    els.list.innerHTML = '<div class="empty">Could not load data yet. If you just deployed, the daily updater may not have run — trigger the GitHub Action manually, then refresh.</div>';
+    els.list.innerHTML = '<div class="empty">Daten konnten nicht geladen werden.<br />Bitte später erneut versuchen.</div>';
+    els.shown.textContent = '0';
     console.error(err);
   }
 });
 
-['input','change'].forEach(ev => {
-  els.q.addEventListener(ev, applyFilters);
-  els.status.addEventListener(ev, applyFilters);
-  els.since.addEventListener(ev, applyFilters);
-});
+/* Open drawer to half-height after first interaction hint on mobile */
+window.addEventListener('keydown', e => { if (e.key === 'Escape') { hideDetail(); collapsePanel(); }});
 </script>
 </body>
 </html>
