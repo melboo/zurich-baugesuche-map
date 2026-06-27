@@ -3,28 +3,38 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#fbfaf7" />
-<title>Baugesuche · Stadt Zürich</title>
-<meta name="description" content="Wo in Zürich gebaut wird – tägliche Karte aller eingereichten Baugesuche." />
+<meta name="theme-color" content="#ffffff" />
+<title>Baugesuche – neue Wohnungen in Zürich</title>
+<meta name="description" content="Neue Wohnungen in Zürich, bevor sie online sind. Eingereichte Baugesuche, täglich aktualisiert." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
   :root {
-    --paper:   #fbfaf7;
-    --paper-2: #f1efe8;
-    --ink:     #0e1115;
-    --rule:    #000000;
-    --muted:   #646773;
-    --blue:    #0033a0;
-    --blue-2:  #001f63;
-    --signal:  #f5d800;
-    --signal-ink: #1a1500;
-    --shadow-card: 0 1px 0 #000, 0 12px 28px rgba(0,0,0,.10);
-    --shadow-soft: 0 1px 0 rgba(0,0,0,.06), 0 6px 18px rgba(0,0,0,.07);
+    --bg:        #fafaf9;
+    --surface:   #ffffff;
+    --surface-2: #f4f4f1;
+    --ink:       #18181b;
+    --ink-2:     #3f3f46;
+    --muted:     #71717a;
+    --line:      #e7e5e2;
+    --line-2:    #d4d4d0;
+    --accent:    #f25c2a;
+    --accent-2:  #e04a1c;
+    --accent-soft: #ffede3;
+    --accent-bg: #fff5ef;
+
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 14px;
+    --r-pill: 999px;
     --tap: 44px;
+
+    --shadow-1: 0 1px 2px rgba(24,24,27,.05);
+    --shadow-2: 0 8px 24px rgba(24,24,27,.08);
+    --shadow-3: 0 -8px 28px rgba(24,24,27,.06);
     font-synthesis: none;
   }
 
@@ -32,263 +42,319 @@
   html, body { height: 100%; margin: 0; overscroll-behavior: none; }
   body {
     font-family: "Geist", -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
-    font-feature-settings: "ss01", "ss03", "cv11", "tnum";
-    color: var(--ink); background: var(--paper);
+    font-feature-settings: "ss01", "cv11";
+    color: var(--ink); background: var(--bg);
     -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
     letter-spacing: -0.005em;
   }
-  .mono { font-family: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace; }
-
   button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
-  a { color: var(--blue); text-underline-offset: 2px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 2px; }
 
   /* --- Map --- */
-  #map { position: fixed; inset: 0; background: var(--paper); }
+  #map { position: fixed; inset: 0; background: var(--bg); }
   .maplibregl-ctrl-bottom-right { margin-bottom: calc(env(safe-area-inset-bottom) + 156px) !important; margin-right: 12px !important; }
   .maplibregl-ctrl-bottom-left  { margin-bottom: calc(env(safe-area-inset-bottom) + 156px) !important; margin-left: 12px !important; }
-  .maplibregl-ctrl-group { border-radius: 2px !important; border: 1px solid var(--ink) !important; box-shadow: var(--shadow-soft) !important; background: var(--paper) !important; }
-  .maplibregl-ctrl-group button { border-radius: 0 !important; }
-  .maplibregl-ctrl-attrib { background: rgba(251,250,247,.85) !important; font-size: 10px !important; }
+  .maplibregl-ctrl-group {
+    border-radius: var(--r-md) !important; border: 1px solid var(--line) !important;
+    box-shadow: var(--shadow-1) !important; background: var(--surface) !important;
+    overflow: hidden;
+  }
+  .maplibregl-ctrl-attrib {
+    background: rgba(255,255,255,.85) !important;
+    font-size: 10px !important; border-radius: var(--r-sm) !important;
+  }
 
-  /* --- Top bar: search + chips --- */
+  /* --- Top bar --- */
   .topbar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 20;
     padding: calc(env(safe-area-inset-top) + 10px) 12px 8px;
     pointer-events: none;
   }
-  .topbar-inner { display: flex; flex-direction: column; gap: 8px; pointer-events: auto; max-width: 760px; margin: 0 auto; }
+  .topbar-inner { display: flex; flex-direction: column; gap: 8px; pointer-events: auto; max-width: 720px; margin: 0 auto; }
+
   .search {
     display: flex; align-items: center; gap: 10px;
-    height: var(--tap);
-    background: var(--paper);
-    border: 1px solid var(--ink); border-radius: 2px;
-    box-shadow: var(--shadow-soft);
-    padding: 0 6px 0 14px;
+    height: var(--tap); padding: 0 6px 0 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    box-shadow: var(--shadow-1), var(--shadow-2);
+    transition: border-color .15s, box-shadow .15s;
   }
-  .search svg { flex: 0 0 auto; color: var(--ink); }
+  .search:focus-within { border-color: var(--ink); }
+  .search svg { flex: 0 0 auto; color: var(--muted); }
   .search input {
     flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink);
     font-size: 15px; height: 100%; outline: none; font-family: inherit;
   }
   .search input::placeholder { color: var(--muted); }
   .search-clear {
-    flex: 0 0 auto; width: 32px; height: 32px; border-radius: 2px;
+    flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%;
     display: none; align-items: center; justify-content: center; color: var(--muted);
   }
   .search.has-value .search-clear { display: inline-flex; }
-  .search-clear:hover { background: var(--paper-2); color: var(--ink); }
+  .search-clear:hover { background: var(--surface-2); color: var(--ink); }
 
   .chips {
     display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
-    padding: 0; margin: 0;
+    padding: 2px 2px 4px; margin: 0 -2px;
   }
   .chips::-webkit-scrollbar { display: none; }
   .chip {
-    flex: 0 0 auto; height: 34px; padding: 0 12px;
-    background: var(--paper); color: var(--ink);
-    border: 1px solid var(--ink); border-radius: 2px;
-    font-size: 12.5px; font-weight: 500; letter-spacing: 0;
-    display: inline-flex; align-items: center; gap: 8px;
-    transition: background .12s, color .12s;
+    flex: 0 0 auto; height: 34px; padding: 0 14px;
+    background: var(--surface); color: var(--ink-2);
+    border: 1px solid var(--line); border-radius: var(--r-pill);
+    font-size: 13px; font-weight: 500;
+    transition: background .15s, color .15s, border-color .15s, transform .12s;
+    box-shadow: var(--shadow-1);
+    display: inline-flex; align-items: center; gap: 6px;
   }
-  .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
-  .chip .dot {
-    width: 8px; height: 8px; border-radius: 50%; background: var(--signal);
-    border: 1px solid var(--ink); display: inline-block;
+  .chip:hover { border-color: var(--ink); transform: translateY(-1px); }
+  .chip[aria-pressed="true"] {
+    background: var(--ink); color: var(--bg);
+    border-color: var(--ink);
   }
-  .chip[aria-pressed="true"] .dot { border-color: var(--paper); }
-  .chip[data-days="0"] .dot { display: none; }
+  .chip[aria-pressed="true"] .chip-x { display: inline-flex; }
+  .chip-x {
+    display: none; width: 14px; height: 14px;
+    align-items: center; justify-content: center;
+    opacity: 0.7;
+  }
+  @media (prefers-reduced-motion: reduce) { .chip { transition: none; transform: none !important; } }
 
-  /* --- Bottom panel (mobile) / sidebar (desktop) --- */
+  /* --- Panel --- */
   .panel {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 15;
-    background: var(--paper);
-    border-top: 1px solid var(--ink);
-    box-shadow: 0 -10px 28px rgba(0,0,0,.08);
+    background: var(--bg);
+    border-top-left-radius: 18px; border-top-right-radius: 18px;
+    box-shadow: var(--shadow-3);
     display: flex; flex-direction: column;
     max-height: 86dvh;
-    transition: transform .26s cubic-bezier(.2,.7,.2,1);
+    transition: transform .28s cubic-bezier(.2,.7,.2,1);
     padding-bottom: env(safe-area-inset-bottom);
   }
   .panel.collapsed { transform: translateY(calc(100% - 132px)); }
   @media (prefers-reduced-motion: reduce) { .panel { transition: none; } }
 
   .panel-handle {
-    width: 100%; padding: 8px 0 6px; display: flex; flex-direction: column;
-    align-items: center; flex: 0 0 auto;
+    width: 100%; padding: 8px 0 4px;
+    display: flex; flex-direction: column; align-items: center; flex: 0 0 auto;
   }
   .panel-handle::before {
-    content: ""; width: 40px; height: 3px; background: var(--muted); display: block; border-radius: 2px;
+    content: ""; width: 40px; height: 4px; background: var(--line-2); border-radius: 4px; display: block;
   }
   .panel-summary {
     width: 100%; padding: 6px 18px 14px;
     display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
-    flex: 0 0 auto; border-bottom: 1px solid var(--rule);
+    flex: 0 0 auto;
+  }
+  .count {
+    display: flex; align-items: baseline; gap: 8px;
   }
   .count-num {
-    font-family: "Geist Mono", ui-monospace, Menlo, monospace;
-    font-size: 30px; font-weight: 500; line-height: 1; letter-spacing: -0.02em;
-    color: var(--ink); display: block;
+    font-size: 32px; font-weight: 600; line-height: 1; letter-spacing: -0.03em; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    transition: color .2s;
   }
-  .count-label {
-    display: block; margin-top: 4px;
-    font-family: "Geist Mono", ui-monospace, Menlo, monospace;
-    font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--muted);
+  .count-num.flash { color: var(--accent); }
+  .count-word { font-size: 14px; font-weight: 500; color: var(--muted); }
+  .count-sub {
+    display: block; margin-top: 6px;
+    font-size: 12px; color: var(--muted);
   }
   .panel-toggle {
-    height: 32px; padding: 0 12px;
-    background: var(--paper); color: var(--ink);
-    border: 1px solid var(--ink); border-radius: 2px;
-    font-size: 12px; font-weight: 500;
+    height: 36px; padding: 0 14px;
+    background: var(--ink); color: var(--bg);
+    border-radius: var(--r-pill); font-size: 13px; font-weight: 500;
     display: inline-flex; align-items: center; gap: 6px;
-    font-family: "Geist Mono", ui-monospace, monospace;
-    text-transform: uppercase; letter-spacing: 0.08em;
+    transition: opacity .15s;
   }
-  .panel-toggle:hover { background: var(--ink); color: var(--paper); }
+  .panel-toggle:hover { opacity: 0.85; }
 
-  .list { overflow-y: auto; flex: 1; min-height: 0; -webkit-overflow-scrolling: touch; }
+  .list {
+    overflow-y: auto; flex: 1; min-height: 0;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 12px 12px;
+  }
   .item {
-    padding: 14px 18px; border-bottom: 1px solid var(--paper-2);
-    display: grid; grid-template-columns: 64px 1fr; gap: 14px;
     width: 100%; text-align: left;
-    transition: background .1s;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: 14px 14px 12px;
+    margin: 8px 0;
+    display: block;
+    transition: border-color .15s, box-shadow .15s, transform .12s;
   }
-  .item:hover, .item.active, .item:focus-visible { background: var(--paper-2); outline: none; }
-  .item .ts {
-    font-family: "Geist Mono", ui-monospace, monospace;
-    font-size: 11px; line-height: 1.3; color: var(--ink);
-    padding-top: 2px;
+  .item:first-of-type { margin-top: 10px; }
+  .item:hover { border-color: var(--ink); box-shadow: var(--shadow-2); }
+  .item.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .item:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .item .top {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin-bottom: 8px;
   }
-  .item .ts .yr { color: var(--muted); font-size: 10px; display: block; margin-top: 2px; }
-  .item .ts .new {
-    display: inline-block; margin-top: 6px;
-    font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase;
-    background: var(--signal); color: var(--signal-ink);
-    padding: 1px 5px; border: 1px solid var(--ink); border-radius: 2px;
+  .item time {
+    font-size: 12px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums;
   }
+  .item .neu {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.01em;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 3px 8px; border-radius: var(--r-pill);
+  }
+  .item .neu::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 0 4px rgba(242,92,42,.15);
+    animation: glow 1.8s ease-in-out infinite;
+  }
+  @keyframes glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(242,92,42,.25); } 50% { box-shadow: 0 0 0 5px rgba(242,92,42,0); } }
+  @media (prefers-reduced-motion: reduce) { .item .neu::before { animation: none; } }
+
   .item h3 {
-    margin: 0 0 6px; font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--ink);
+    margin: 0 0 6px; font-size: 15px; font-weight: 500; line-height: 1.4; color: var(--ink);
     letter-spacing: -0.005em;
   }
   .item .addr {
-    font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--ink-2); margin-bottom: 10px;
+    display: inline-flex; align-items: center; gap: 6px;
   }
-  .item .addr::before {
-    content: ""; width: 5px; height: 5px; background: var(--blue); display: inline-block;
-    flex: 0 0 auto;
+  .item .addr svg { flex: 0 0 auto; color: var(--muted); }
+  .item .badges {
+    display: flex; flex-wrap: wrap; gap: 5px;
   }
-  .item.is-new .addr::before { background: var(--signal); }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11.5px; font-weight: 500; line-height: 1;
+    padding: 5px 8px; border-radius: var(--r-sm);
+    background: var(--surface-2); color: var(--ink-2);
+    border: 1px solid var(--line);
+  }
+  .badge.primary {
+    background: var(--accent-bg); color: var(--accent-2);
+    border-color: var(--accent-soft);
+  }
+  .badge svg { flex: 0 0 auto; }
 
   .empty, .loading {
-    padding: 28px 22px; color: var(--muted); font-size: 13.5px; line-height: 1.55; text-align: center;
+    padding: 32px 22px; color: var(--muted); font-size: 14px; line-height: 1.55; text-align: center;
   }
-  .skel { display: flex; flex-direction: column; gap: 6px; padding: 14px 18px; border-bottom: 1px solid var(--paper-2); }
-  .skel .b { background: var(--paper-2); height: 12px; animation: pulse 1.4s ease-in-out infinite; }
+  .empty button {
+    color: var(--accent); font-weight: 500; margin-top: 4px;
+  }
+  .empty button:hover { text-decoration: underline; }
+  .skel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 16px; margin: 8px 0; }
+  .skel .b { background: var(--surface-2); border-radius: 4px; height: 12px; margin: 6px 0; animation: pulse 1.4s ease-in-out infinite; }
   .skel .b.short { width: 35%; height: 10px; }
   .skel .b.med   { width: 75%; }
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
   @media (prefers-reduced-motion: reduce) { .skel .b { animation: none; } }
 
   .more {
-    padding: 16px 22px; color: var(--muted); font-size: 12px; text-align: center;
-    border-top: 1px solid var(--paper-2);
-    font-family: "Geist Mono", monospace; letter-spacing: 0.04em;
+    padding: 14px 16px; color: var(--muted); font-size: 12px; text-align: center;
+    margin-top: 4px;
   }
 
   .footer {
-    border-top: 1px solid var(--rule); padding: 14px 18px;
-    font-size: 11.5px; color: var(--muted); line-height: 1.55;
+    padding: 16px 18px 20px;
+    border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--muted); line-height: 1.55;
   }
-  .footer .stamp {
-    display: block; margin-top: 6px; font-family: "Geist Mono", monospace;
-    font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  .footer .stamp { display: block; margin-top: 6px; }
+  .footer .show-all {
+    display: inline-block; margin-top: 10px;
+    color: var(--ink); font-weight: 500;
+    border-bottom: 1px solid var(--line-2);
+    padding-bottom: 1px;
   }
+  .footer .show-all:hover { border-bottom-color: var(--ink); }
 
-  /* --- Bauinformation detail card --- */
+  /* --- Detail card --- */
   .detail {
     position: fixed; left: 12px; right: 12px;
     bottom: calc(env(safe-area-inset-bottom) + 16px);
-    background: var(--paper);
-    border: 1px solid var(--ink); border-radius: 2px;
-    box-shadow: var(--shadow-card);
-    padding: 0; z-index: 30; max-width: 460px; margin: 0 auto;
-    transform: translateY(120%); transition: transform .24s cubic-bezier(.2,.7,.2,1);
+    background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--r-lg);
+    box-shadow: var(--shadow-2);
+    padding: 18px 18px 16px; z-index: 30; max-width: 460px; margin: 0 auto;
+    transform: translateY(120%); transition: transform .26s cubic-bezier(.2,.7,.2,1);
   }
   @media (prefers-reduced-motion: reduce) { .detail { transition: none; } }
   .detail.show { transform: translateY(0); }
-  .detail-head {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 8px 8px 8px 14px;
-    background: var(--ink); color: var(--paper);
-    font-family: "Geist Mono", monospace;
-    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
-  }
-  .detail-head .id { color: var(--paper); opacity: 0.7; font-size: 10.5px; text-transform: none; letter-spacing: 0.02em; }
   .detail-close {
-    flex: 0 0 auto; width: 30px; height: 30px; border-radius: 2px; color: var(--paper);
+    position: absolute; top: 10px; right: 10px;
+    width: 30px; height: 30px; border-radius: 50%; color: var(--muted);
     display: inline-flex; align-items: center; justify-content: center;
   }
-  .detail-close:hover { background: rgba(255,255,255,.15); }
-  .detail-body { padding: 16px 16px 14px; }
-  .detail-body h3 {
-    margin: 0 0 14px; font-size: 17px; font-weight: 500; line-height: 1.3; letter-spacing: -0.01em;
+  .detail-close:hover { background: var(--surface-2); color: var(--ink); }
+  .detail .neu {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; color: var(--accent);
+    background: var(--accent-soft);
+    padding: 3px 8px; border-radius: var(--r-pill);
+    margin-bottom: 10px;
   }
-  .detail-row { margin: 12px 0; }
-  .detail-row .k {
-    display: block;
-    font-family: "Geist Mono", monospace; font-size: 10px;
-    letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
-    margin-bottom: 3px;
+  .detail .neu::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
   }
-  .detail-row .v { font-size: 13.5px; color: var(--ink); }
-  .detail-row .v.mono { font-family: "Geist Mono", monospace; font-size: 13px; }
-  .detail .link {
-    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--paper-2);
-    display: inline-flex; align-items: center; gap: 8px;
-    color: var(--blue); font-weight: 500; font-size: 13px; text-decoration: none;
+  .detail h3 {
+    margin: 0 32px 6px 0; font-size: 17px; font-weight: 500; line-height: 1.35; letter-spacing: -0.01em;
   }
-  .detail .link:hover { text-decoration: underline; }
-  .detail .recent-strip {
-    height: 4px; background: var(--signal); border-bottom: 1px solid var(--ink); display: none;
+  .detail .addr {
+    font-size: 13px; color: var(--ink-2); margin-bottom: 14px;
+    display: inline-flex; align-items: center; gap: 6px;
   }
-  .detail.is-new .recent-strip { display: block; }
+  .detail .addr svg { color: var(--muted); }
+  .detail .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .detail .meta-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 12px; border-top: 1px solid var(--line);
+    font-size: 13px; color: var(--ink-2);
+  }
+  .detail .meta-row time { font-variant-numeric: tabular-nums; }
+  .detail .cta {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--accent); font-weight: 500;
+  }
+  .detail .cta:hover { text-decoration: underline; }
 
-  /* --- Desktop layout: sidebar + map --- */
+  /* --- Desktop --- */
   @media (min-width: 920px) {
-    #map { left: 408px; }
-    .topbar { left: 408px; }
+    #map { left: 420px; }
+    .topbar { left: 420px; }
     .topbar-inner { max-width: none; }
     .panel {
       position: fixed; top: 0; left: 0; bottom: 0; right: auto;
-      width: 408px; max-height: none; border-top: 0;
-      border-right: 1px solid var(--rule); box-shadow: none;
+      width: 420px; max-height: none; border-top-left-radius: 0; border-top-right-radius: 0;
+      border-right: 1px solid var(--line); box-shadow: none;
       transform: none !important; padding-bottom: 0;
     }
     .panel-handle { display: none; }
+    .panel-toggle { display: none; }
     .desktop-brand {
-      display: block; padding: 24px 22px 18px;
-      border-bottom: 1px solid var(--rule);
+      display: block; padding: 24px 22px 14px;
     }
-    .desktop-brand .eyebrow {
-      font-family: "Geist Mono", monospace;
-      font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
-      color: var(--muted); margin: 0 0 12px;
-      display: flex; align-items: center; gap: 8px;
+    .desktop-brand .logo {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 500; color: var(--muted);
+      margin-bottom: 14px;
     }
-    .desktop-brand .eyebrow .north {
-      width: 12px; height: 14px;
+    .desktop-brand .logo .dot {
+      width: 10px; height: 10px; border-radius: 50%; background: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
     }
     .desktop-brand h1 {
-      font-size: 28px; line-height: 1.05; margin: 0 0 8px; font-weight: 600;
-      letter-spacing: -0.025em;
+      font-size: 28px; line-height: 1.1; margin: 0 0 8px;
+      font-weight: 600; letter-spacing: -0.025em;
     }
-    .desktop-brand .lede { font-size: 13.5px; color: var(--muted); margin: 0; line-height: 1.55; }
-    .panel-summary { padding: 18px 22px 14px; }
-    .panel-toggle { display: none; }
+    .desktop-brand h1 em { font-style: normal; color: var(--accent); }
+    .desktop-brand .lede { font-size: 14px; color: var(--muted); margin: 0; line-height: 1.55; }
+    .panel-summary { padding: 16px 22px 14px; border-top: 1px solid var(--line); }
     .detail {
-      position: absolute; left: 428px; right: auto; bottom: 20px;
+      position: absolute; left: 440px; right: auto; bottom: 20px;
       width: 380px; max-width: none; margin: 0;
     }
     .maplibregl-ctrl-bottom-right { margin-bottom: 12px !important; }
@@ -296,7 +362,18 @@
   }
   .desktop-brand { display: none; }
 
-  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 1px; }
+  /* mobile-only brand strip at top of drawer */
+  .mobile-brand {
+    padding: 4px 18px 0;
+    font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 8px;
+  }
+  .mobile-brand .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+  @media (min-width: 920px) { .mobile-brand { display: none; } }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
   .sr-only {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
@@ -305,7 +382,7 @@
 </head>
 <body>
 
-<div id="map" role="application" aria-label="Karte der Baugesuche"></div>
+<div id="map" role="application" aria-label="Karte"></div>
 
 <div class="topbar">
   <div class="topbar-inner">
@@ -314,38 +391,42 @@
         <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>
       </svg>
       <input id="q" type="search" inputmode="search" enterkeyhint="search"
-             placeholder="Adresse oder Projekt suchen" aria-label="Baugesuche durchsuchen" autocomplete="off" />
+             placeholder="Adresse, Quartier oder Stichwort" aria-label="Suchen" autocomplete="off" />
       <button class="search-clear" id="qClear" type="button" aria-label="Suche löschen">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
     </div>
-    <div class="chips" role="tablist" aria-label="Zeitraum">
-      <button class="chip" data-days="30"  role="tab" aria-pressed="false"><span class="dot" aria-hidden="true"></span>30 Tage</button>
-      <button class="chip" data-days="90"  role="tab" aria-pressed="false"><span class="dot" aria-hidden="true"></span>3 Monate</button>
-      <button class="chip" data-days="180" role="tab" aria-pressed="false"><span class="dot" aria-hidden="true"></span>6 Monate</button>
-      <button class="chip" data-days="0"   role="tab" aria-pressed="true"><span class="dot" aria-hidden="true"></span>Alle</button>
+    <div class="chips" role="group" aria-label="Filter">
+      <button class="chip" data-filter="recent"   aria-pressed="false">Letzte 30 Tage <span class="chip-x" aria-hidden="true">✕</span></button>
+      <button class="chip" data-filter="neubau"   aria-pressed="false">Nur Neubau <span class="chip-x" aria-hidden="true">✕</span></button>
+      <button class="chip" data-filter="attika"   aria-pressed="false">Attika <span class="chip-x" aria-hidden="true">✕</span></button>
+      <button class="chip" data-filter="garten"   aria-pressed="false">Garten <span class="chip-x" aria-hidden="true">✕</span></button>
+      <button class="chip" data-filter="big"      aria-pressed="false">10+ Wohnungen <span class="chip-x" aria-hidden="true">✕</span></button>
     </div>
   </div>
 </div>
 
-<aside class="panel collapsed" id="panel" aria-label="Liste der Baugesuche">
+<aside class="panel collapsed" id="panel" aria-label="Liste der Projekte">
   <div class="desktop-brand">
-    <p class="eyebrow">
-      <svg class="north" viewBox="0 0 12 14" aria-hidden="true">
-        <polygon points="6,0 11,14 6,11 1,14" fill="currentColor" />
-      </svg>
-      Stadt Zürich · Open Data
-    </p>
-    <h1>Wo in Zürich gebaut wird.</h1>
-    <p class="lede">Jedes eingereichte Baugesuch der Stadt – täglich aktualisiert aus dem amtlichen Datensatz.</p>
+    <span class="logo"><span class="dot" aria-hidden="true"></span>Wohnungen in Zürich</span>
+    <h1>Neue Wohnungen, <em>bevor sie online sind.</em></h1>
+    <p class="lede">Eingereichte Baugesuche der Stadt Zürich – täglich aktualisiert. Vor Marktstart sehen, wer wo baut, und direkt anschreiben.</p>
   </div>
 
   <button class="panel-handle" id="panelHandle" aria-controls="panel" aria-expanded="false" aria-label="Liste ein- und ausklappen"></button>
 
+  <div class="mobile-brand">
+    <span class="dot" aria-hidden="true"></span>
+    <span>Neue Wohnungen – vor Marktstart</span>
+  </div>
+
   <div class="panel-summary">
     <div>
-      <span class="count-num mono" id="shown">–</span>
-      <span class="count-label" id="rangeLabel">Alle verfügbaren · Baugesuche</span>
+      <div class="count">
+        <span class="count-num" id="shown">–</span>
+        <span class="count-word" id="shownWord">Projekte</span>
+      </div>
+      <span class="count-sub" id="rangeLabel">mit potentiellen neuen Wohnungen</span>
     </div>
     <button class="panel-toggle" id="panelToggle" aria-controls="panel">
       <span id="toggleLabel">Liste</span>
@@ -360,37 +441,38 @@
   </div>
 
   <div class="footer">
-    Quelle: <a href="https://opendata.swiss/de/dataset/baugesuche-im-kanton-zurich" target="_blank" rel="noopener">Baugesuche im Kanton Zürich</a>, opendata.swiss. Ein eingereichtes Baugesuch heisst nicht, dass tatsächlich gebaut wird.
+    Quelle: <a href="https://opendata.swiss/de/dataset/baugesuche-im-kanton-zurich" target="_blank" rel="noopener">opendata.swiss</a>. Persönliche Daten sind nicht im Datensatz – Bauherr und Architekt findest du im verlinkten Amtsblatt-Eintrag.
     <span class="stamp" id="stamp"></span>
+    <button class="show-all" id="showAll">Auch andere Baugesuche zeigen →</button>
   </div>
 </aside>
 
 <div class="detail" id="detail" role="dialog" aria-labelledby="detailTitle" aria-modal="false">
-  <div class="recent-strip" aria-hidden="true"></div>
-  <div class="detail-head">
-    <span>Baugesuch <span class="id" id="detailId"></span></span>
-    <button class="detail-close" id="detailClose" type="button" aria-label="Schliessen">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
-    </button>
-  </div>
-  <div class="detail-body">
-    <h3 id="detailTitle">–</h3>
-    <div id="detailRows"></div>
-    <a class="link" id="detailLink" target="_blank" rel="noopener" style="display:none">
-      Amtsblatt-Eintrag öffnen
+  <button class="detail-close" id="detailClose" type="button" aria-label="Schliessen">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+  </button>
+  <span class="neu" id="detailNeu" style="display:none">Neu</span>
+  <h3 id="detailTitle">–</h3>
+  <div class="addr" id="detailAddr"></div>
+  <div class="badges" id="detailBadges"></div>
+  <div class="meta-row">
+    <time id="detailDate"></time>
+    <a class="cta" id="detailLink" target="_blank" rel="noopener" style="display:none">
+      Wer baut hier?
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
     </a>
   </div>
 </div>
 
 <script>
+/* ── Constants ───────────────────────────── */
 const ZH = { center: [8.5417, 47.3769], zoom: 11.6 };
-const BLUE = '#0033a0';
-const SIGNAL = '#f5d800';
-const INK = '#0e1115';
+const ACCENT = '#f25c2a';
+const INK = '#18181b';
 const NEW_DAYS = 30;
 const NEW_MS = NEW_DAYS * 864e5;
 
+/* ── Map ───────────────────────────── */
 const map = new maplibregl.Map({
   container: 'map',
   style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
@@ -400,33 +482,40 @@ const map = new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 map.addControl(new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, showAccuracyCircle: true }), 'top-right');
 
+/* ── State ───────────────────────────── */
 const els = {
   q: document.getElementById('q'),
   qClear: document.getElementById('qClear'),
   search: document.getElementById('search'),
   chips: [...document.querySelectorAll('.chip')],
   shown: document.getElementById('shown'),
+  shownWord: document.getElementById('shownWord'),
   rangeLabel: document.getElementById('rangeLabel'),
   list: document.getElementById('list'),
   stamp: document.getElementById('stamp'),
+  showAll: document.getElementById('showAll'),
   panel: document.getElementById('panel'),
   panelHandle: document.getElementById('panelHandle'),
   panelToggle: document.getElementById('panelToggle'),
   toggleLabel: document.getElementById('toggleLabel'),
   toggleIcon: document.getElementById('toggleIcon'),
   detail: document.getElementById('detail'),
+  detailNeu: document.getElementById('detailNeu'),
   detailTitle: document.getElementById('detailTitle'),
-  detailRows: document.getElementById('detailRows'),
+  detailAddr: document.getElementById('detailAddr'),
+  detailBadges: document.getElementById('detailBadges'),
+  detailDate: document.getElementById('detailDate'),
   detailLink: document.getElementById('detailLink'),
-  detailId: document.getElementById('detailId'),
   detailClose: document.getElementById('detailClose'),
 };
 
 let ALL = [];
 let filtered = [];
-let activeDays = 0;
+let activeFilters = new Set();
+let includeAll = false; // false = only apartment-relevant
 const now = Date.now();
 
+/* ── Helpers ───────────────────────────── */
 function parseDate(s) {
   if (!s) return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
@@ -439,38 +528,71 @@ function fmtDate(s) {
 }
 function fmtDateShort(s) {
   const d = parseDate(s); if (!d) return '';
-  return d.toLocaleDateString('de-CH', { day:'2-digit', month:'2-digit' });
+  return d.toLocaleDateString('de-CH', { day:'2-digit', month:'short', year:'numeric' });
 }
-function fmtYear(s) {
-  const d = parseDate(s); if (!d) return '';
-  return d.getFullYear();
-}
-function fmtCount(n) {
-  return n.toLocaleString('de-CH').replace(/’/g, '.');
-}
+function fmtCount(n) { return n.toLocaleString('de-CH').replace(/'/g, '.'); }
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function truncate(s, n) { return s.length > n ? s.slice(0, n-1) + '…' : s; }
-function isNew(p) {
-  const d = parseDate(p.date);
-  return d ? (now - +d) <= NEW_MS : false;
-}
 
+/* ── Classification & feature extraction ───────────────────────────── */
+function classify(text) {
+  const t = (text || '').toLowerCase();
+  if (!t) return null;
+  const wohnHints = /mehrfamilienhaus|wohnüberbauung|wohnhaus|wohnungen|wohneinheiten|wohnen|mfh|wohnsiedlung/.test(t);
+
+  // skip noise outright
+  if (/antennenanlage|antennenkonfiguration|mobilfunk|reklame|werbeanlage/.test(t)) return 'andere';
+
+  if (/\bersatzneubau\b/.test(t)) return wohnHints ? 'ersatzneubau' : 'andere';
+  if (/\bneubau\b/.test(t)) return wohnHints || /einfamilienhaus|efh/.test(t) ? 'neubau' : 'andere';
+  if (/aufstockung|dachausbau|dachaufstockung|dachgeschossausbau/.test(t)) return (wohnHints || /attika|dachwohnung/.test(t)) ? 'aufstockung' : 'andere';
+  if (/umbau/.test(t) && wohnHints) return 'umbau-wohn';
+  if (/(sanierung|renovation|gesamterneuerung)/.test(t) && wohnHints) return 'sanierung-wohn';
+  return 'andere';
+}
+function extractFeatures(text) {
+  const t = text || '';
+  const f = {};
+  const mUnits = /(\d+)\s*(?:wohnungen|wohneinheiten|mfh-?wohnungen|mietwohnungen|eigentumswohnungen)/i.exec(t);
+  if (mUnits) f.units = +mUnits[1];
+  const mRooms = /(\d(?:\.\d)?)\s*[-–]?\s*zimmer/i.exec(t);
+  if (mRooms) f.rooms = mRooms[1];
+  f.attika   = /\battika\w*/i.test(t);
+  f.garten   = /\bgarten(?!haus|mauer|hag)\w*/i.test(t);
+  f.terrasse = /\bterrasse\w*/i.test(t);
+  f.balkon   = /\bbalkon\w*/i.test(t);
+  f.tiefgarage = /tiefgarage|parkgeschoss|einstellhalle/i.test(t);
+  return f;
+}
 function annotate(features) {
   for (const f of features) {
-    f.properties._new = isNew(f.properties) ? 1 : 0;
+    const p = f.properties;
+    p._type = classify(p.description);
+    p._features = extractFeatures(p.description);
+    p._new = parseDate(p.date) ? (now - +parseDate(p.date)) <= NEW_MS : false;
   }
+}
+
+const RELEVANT_TYPES = new Set(['neubau', 'ersatzneubau', 'aufstockung', 'umbau-wohn']);
+
+/* ── Filters ───────────────────────────── */
+function passesFilter(p) {
+  if (!includeAll && !RELEVANT_TYPES.has(p._type)) return false;
+  if (activeFilters.has('recent') && !p._new) return false;
+  if (activeFilters.has('neubau') && p._type !== 'neubau' && p._type !== 'ersatzneubau') return false;
+  if (activeFilters.has('attika') && !p._features.attika) return false;
+  if (activeFilters.has('garten') && !p._features.garten) return false;
+  if (activeFilters.has('big') && !(p._features.units >= 10)) return false;
+  return true;
 }
 
 function applyFilters() {
   const q = els.q.value.trim().toLowerCase();
   els.search.classList.toggle('has-value', q.length > 0);
 
-  const days = activeDays;
-  const cutoff = days > 0 ? new Date(now - days*864e5) : null;
-
   filtered = ALL.filter(f => {
     const p = f.properties;
-    if (cutoff) { const d = parseDate(p.date); if (!d || d < cutoff) return false; }
+    if (!passesFilter(p)) return false;
     if (q) {
       const hay = `${p.description||''} ${p.address||''}`.toLowerCase();
       if (!hay.includes(q)) return false;
@@ -481,49 +603,78 @@ function applyFilters() {
   const src = map.getSource('apps');
   if (src) src.setData({ type:'FeatureCollection', features: filtered });
 
-  els.shown.textContent = fmtCount(filtered.length).padStart(5, '0');
-  els.rangeLabel.textContent =
-    (days === 0 ? 'Alle verfügbaren'
-     : days === 30 ? 'Letzte 30 Tage'
-     : days === 90 ? 'Letzte 3 Monate'
-     : `Letzte ${(days/30)|0} Monate`)
-    + ' · Baugesuche';
-
+  flashCount(filtered.length);
+  els.shownWord.textContent = filtered.length === 1 ? 'Projekt' : 'Projekte';
+  els.rangeLabel.textContent = includeAll
+    ? 'inkl. aller Baugesuche'
+    : 'mit potentiellen neuen Wohnungen';
   renderList();
+}
+
+function flashCount(n) {
+  const prev = +els.shown.dataset.val || 0;
+  els.shown.dataset.val = n;
+  els.shown.textContent = fmtCount(n);
+  if (n !== prev) {
+    els.shown.classList.add('flash');
+    setTimeout(() => els.shown.classList.remove('flash'), 320);
+  }
+}
+
+/* ── Rendering ───────────────────────────── */
+function badge(label, primary) {
+  return `<span class="badge${primary ? ' primary' : ''}">${escapeHtml(label)}</span>`;
+}
+function buildBadges(p) {
+  const f = p._features;
+  const parts = [];
+  const typeMap = { neubau: 'Neubau', ersatzneubau: 'Ersatzneubau', aufstockung: 'Aufstockung', 'umbau-wohn': 'Umbau', 'sanierung-wohn': 'Sanierung' };
+  if (typeMap[p._type]) parts.push(badge(typeMap[p._type], true));
+  if (f.units) parts.push(badge(`${f.units} Wohnungen`));
+  if (f.rooms) parts.push(badge(`${f.rooms}-Zimmer`));
+  if (f.attika) parts.push(badge('Attika'));
+  if (f.garten) parts.push(badge('Garten'));
+  if (f.terrasse) parts.push(badge('Terrasse'));
+  if (f.balkon && !f.terrasse) parts.push(badge('Balkon'));
+  if (f.tiefgarage) parts.push(badge('Tiefgarage'));
+  return parts.join('');
 }
 
 function renderList() {
   if (!filtered.length) {
-    els.list.innerHTML = '<div class="empty">Keine Baugesuche entsprechen den Filtern.<br />Suchbegriff ändern oder einen weiteren Zeitraum wählen.</div>';
+    els.list.innerHTML = `<div class="empty">
+      Nichts gefunden.<br />
+      <button id="resetFilters">Filter zurücksetzen</button>
+    </div>`;
+    document.getElementById('resetFilters')?.addEventListener('click', resetFilters);
     return;
   }
   const sorted = filtered.slice().sort((a, b) => {
     const da = parseDate(a.properties.date), db = parseDate(b.properties.date);
     return (db ? +db : 0) - (da ? +da : 0);
   });
-  const top = sorted.slice(0, 200);
+  const top = sorted.slice(0, 150);
+  const pinIcon = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>';
+
   els.list.innerHTML = top.map((f, i) => {
     const p = f.properties;
     const title = p.description || p.address || 'Baugesuch';
-    const isNewF = p._new === 1;
-    return `<button class="item ${isNewF ? 'is-new' : ''}" data-i="${i}" role="listitem">
-      <div class="ts">
-        ${fmtDateShort(p.date)}<span class="yr">${fmtYear(p.date)}</span>
-        ${isNewF ? '<span class="new">Neu</span>' : ''}
+    return `<button class="item" data-i="${i}" role="listitem">
+      <div class="top">
+        <time>${fmtDateShort(p.date)}</time>
+        ${p._new ? '<span class="neu">Neu</span>' : ''}
       </div>
-      <div>
-        <h3>${escapeHtml(truncate(title, 120))}</h3>
-        ${p.address ? `<div class="addr">${escapeHtml(truncate(p.address, 56))}</div>` : ''}
-      </div>
+      <h3>${escapeHtml(truncate(title, 130))}</h3>
+      ${p.address ? `<div class="addr">${pinIcon}${escapeHtml(truncate(p.address, 56))}</div>` : ''}
+      <div class="badges">${buildBadges(p)}</div>
     </button>`;
   }).join('') + (filtered.length > top.length
-    ? `<div class="more">+ ${fmtCount(filtered.length - top.length)} weitere · Zeitraum eingrenzen oder reinzoomen</div>` : '');
+    ? `<div class="more">+ ${fmtCount(filtered.length - top.length)} weitere · Filter eingrenzen oder reinzoomen</div>` : '');
 
   els.list.querySelectorAll('.item').forEach(btn => {
     btn.addEventListener('click', () => {
       const f = top[+btn.dataset.i];
-      flyToFeature(f);
-      showDetail(f);
+      flyToFeature(f); showDetail(f);
       els.list.querySelectorAll('.item').forEach(x => x.classList.remove('active'));
       btn.classList.add('active');
       collapsePanel();
@@ -531,30 +682,33 @@ function renderList() {
   });
 }
 
+function resetFilters() {
+  activeFilters.clear();
+  els.chips.forEach(c => c.setAttribute('aria-pressed', 'false'));
+  els.q.value = '';
+  includeAll = false;
+  els.showAll.textContent = 'Auch andere Baugesuche zeigen →';
+  applyFilters();
+}
+
+/* ── Detail card ───────────────────────────── */
 function flyToFeature(f) {
   map.flyTo({ center: f.geometry.coordinates, zoom: 16.5, speed: 1.3, essential: true });
 }
-
 function showDetail(f) {
   const p = f.properties;
   const title = p.description || p.address || 'Baugesuch';
   els.detailTitle.textContent = title;
-  els.detail.classList.toggle('is-new', p._new === 1);
-
-  const shortId = p.id ? String(p.id).split('-')[0] : '';
-  els.detailId.textContent = shortId ? `#${shortId}` : '';
-
-  const rows = [];
-  if (p.address) rows.push(`<div class="detail-row"><span class="k">Adresse</span><span class="v">${escapeHtml(p.address)}</span></div>`);
-  rows.push(`<div class="detail-row"><span class="k">Eingereicht</span><span class="v mono">${fmtDate(p.date)}</span></div>`);
-  els.detailRows.innerHTML = rows.join('');
-
+  els.detailNeu.style.display = p._new ? 'inline-flex' : 'none';
+  els.detailAddr.innerHTML = p.address
+    ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>${escapeHtml(p.address)}`
+    : '';
+  els.detailBadges.innerHTML = buildBadges(p);
+  els.detailDate.textContent = `Eingereicht ${fmtDate(p.date)}`;
   if (p.url) { els.detailLink.href = p.url; els.detailLink.style.display = 'inline-flex'; }
-  else els.detailLink.style.display = 'none';
-
+  else { els.detailLink.style.display = 'none'; }
   els.detail.classList.add('show');
 }
-
 function hideDetail() { els.detail.classList.remove('show'); }
 els.detailClose.addEventListener('click', hideDetail);
 map.on('click', e => {
@@ -562,6 +716,7 @@ map.on('click', e => {
   if (!f.length) hideDetail();
 });
 
+/* ── Panel drawer ───────────────────────────── */
 function togglePanel(force) {
   const expand = force === true || (force === undefined && els.panel.classList.contains('collapsed'));
   els.panel.classList.toggle('collapsed', !expand);
@@ -573,31 +728,37 @@ function collapsePanel() { togglePanel(false); }
 els.panelHandle.addEventListener('click', () => togglePanel());
 els.panelToggle.addEventListener('click', () => togglePanel());
 
+/* ── Inputs ───────────────────────────── */
 let qTimer;
 els.q.addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(applyFilters, 120); });
 els.qClear.addEventListener('click', () => { els.q.value = ''; els.q.focus(); applyFilters(); });
 els.chips.forEach(chip => chip.addEventListener('click', () => {
-  activeDays = +chip.dataset.days;
-  els.chips.forEach(c => c.setAttribute('aria-pressed', String(c === chip)));
+  const key = chip.dataset.filter;
+  const on = chip.getAttribute('aria-pressed') === 'true';
+  chip.setAttribute('aria-pressed', String(!on));
+  if (on) activeFilters.delete(key); else activeFilters.add(key);
   applyFilters();
 }));
+els.showAll.addEventListener('click', () => {
+  includeAll = !includeAll;
+  els.showAll.textContent = includeAll ? 'Nur Wohnprojekte zeigen ←' : 'Auch andere Baugesuche zeigen →';
+  applyFilters();
+});
 
+/* ── Map data & clustering ───────────────────────────── */
 map.on('load', async () => {
   map.addSource('apps', {
-    type: 'geojson', data: { type:'FeatureCollection', features: [] },
+    type: 'geojson', data: { type: 'FeatureCollection', features: [] },
     cluster: true, clusterMaxZoom: 14, clusterRadius: 50,
-    clusterProperties: { new_count: ['+', ['get', '_new']] },
   });
-
-  /* clusters: blue base, yellow ring if it contains any "new" application */
   map.addLayer({
     id: 'apps-clusters', type: 'circle', source: 'apps', filter: ['has', 'point_count'],
     paint: {
-      'circle-color': BLUE,
-      'circle-stroke-color': ['case', ['>', ['get', 'new_count'], 0], SIGNAL, '#ffffff'],
-      'circle-stroke-width': ['case', ['>', ['get', 'new_count'], 0], 3, 2],
-      'circle-radius': ['step', ['get', 'point_count'], 18, 25, 24, 100, 30, 500, 38],
+      'circle-color': ACCENT,
       'circle-opacity': 0.92,
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 2,
+      'circle-radius': ['step', ['get', 'point_count'], 18, 25, 24, 100, 30, 500, 38],
     },
   });
   map.addLayer({
@@ -609,15 +770,13 @@ map.on('load', async () => {
     },
     paint: { 'text-color': '#ffffff' },
   });
-
-  /* unclustered: yellow if recent, blue otherwise */
   map.addLayer({
     id: 'apps-unclustered', type: 'circle', source: 'apps', filter: ['!', ['has', 'point_count']],
     paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 4, 14, 6.5, 17, 10],
-      'circle-color': ['case', ['==', ['get', '_new'], 1], SIGNAL, BLUE],
-      'circle-stroke-color': INK,
-      'circle-stroke-width': 1.2,
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 4.5, 14, 7, 17, 11],
+      'circle-color': ACCENT,
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 1.5,
       'circle-opacity': 0.95,
     },
   });
@@ -630,7 +789,8 @@ map.on('load', async () => {
     });
   });
   map.on('click', 'apps-unclustered', e => {
-    const f = ALL.find(x => x.properties.id === e.features[0].properties.id) || e.features[0];
+    const orig = ALL.find(x => x.properties.id === e.features[0].properties.id);
+    const f = orig || e.features[0];
     flyToFeature(f); showDetail(f);
   });
   for (const layer of ['apps-clusters', 'apps-unclustered']) {
@@ -652,7 +812,7 @@ map.on('load', async () => {
     applyFilters();
   } catch (err) {
     els.list.innerHTML = '<div class="empty">Daten konnten nicht geladen werden.<br />Bitte später erneut versuchen.</div>';
-    els.shown.textContent = '00000';
+    els.shown.textContent = '0';
     console.error(err);
   }
 });
