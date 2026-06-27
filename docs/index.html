@@ -31,6 +31,9 @@
     --r-lg: 14px;
     --r-pill: 999px;
     --tap: 44px;
+    --panel-peek: 144px;
+    --panel-half: 56dvh;
+    --panel-full: 86dvh;
 
     --shadow-1: 0 1px 2px rgba(24,24,27,.05);
     --shadow-2: 0 8px 24px rgba(24,24,27,.08);
@@ -91,11 +94,11 @@
   }
   .search input::placeholder { color: var(--muted); }
   .search-clear {
-    flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%;
+    flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%;
     display: none; align-items: center; justify-content: center; color: var(--muted);
   }
   .search.has-value .search-clear { display: inline-flex; }
-  .search-clear:hover { background: var(--surface-2); color: var(--ink); }
+  @media (hover: hover) { .search-clear:hover { background: var(--surface-2); color: var(--ink); } }
 
   .chips {
     display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
@@ -103,7 +106,7 @@
   }
   .chips::-webkit-scrollbar { display: none; }
   .chip {
-    flex: 0 0 auto; height: 34px; padding: 0 14px;
+    flex: 0 0 auto; height: 40px; padding: 0 16px;
     background: var(--surface); color: var(--ink-2);
     border: 1px solid var(--line); border-radius: var(--r-pill);
     font-size: 13px; font-weight: 500;
@@ -111,7 +114,9 @@
     box-shadow: var(--shadow-1);
     display: inline-flex; align-items: center; gap: 6px;
   }
-  .chip:hover { border-color: var(--ink); transform: translateY(-1px); }
+  @media (hover: hover) {
+    .chip:hover { border-color: var(--ink); transform: translateY(-1px); }
+  }
   .chip[aria-pressed="true"] {
     background: var(--ink); color: var(--bg);
     border-color: var(--ink);
@@ -124,27 +129,34 @@
   }
   @media (prefers-reduced-motion: reduce) { .chip { transition: none; transform: none !important; } }
 
-  /* --- Panel --- */
+  /* --- Panel (bottom sheet) — 3 snap states: peek / half / full --- */
   .panel {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 15;
     background: var(--bg);
     border-top-left-radius: 18px; border-top-right-radius: 18px;
     box-shadow: var(--shadow-3);
     display: flex; flex-direction: column;
-    max-height: 86dvh;
+    height: var(--panel-full);
     transition: transform .28s cubic-bezier(.2,.7,.2,1);
     padding-bottom: env(safe-area-inset-bottom);
+    transform: translateY(calc(100% - var(--panel-peek)));
   }
-  .panel.collapsed { transform: translateY(calc(100% - 132px)); }
+  .panel[data-state="half"] { transform: translateY(calc(100% - var(--panel-half))); }
+  .panel[data-state="full"] { transform: translateY(calc(100% - var(--panel-full))); }
+  .panel.dragging { transition: none; user-select: none; }
   @media (prefers-reduced-motion: reduce) { .panel { transition: none; } }
 
   .panel-handle {
-    width: 100%; padding: 8px 0 4px;
+    width: 100%; padding: 12px 0 8px;
     display: flex; flex-direction: column; align-items: center; flex: 0 0 auto;
+    cursor: grab; touch-action: none;
   }
+  .panel.dragging .panel-handle { cursor: grabbing; }
   .panel-handle::before {
-    content: ""; width: 40px; height: 4px; background: var(--line-2); border-radius: 4px; display: block;
+    content: ""; width: 44px; height: 5px; background: var(--line-2); border-radius: 5px; display: block;
+    transition: background .15s, width .15s;
   }
+  .panel-handle:hover::before, .panel.dragging .panel-handle::before { background: var(--muted); width: 56px; }
   .panel-summary {
     width: 100%; padding: 6px 18px 14px;
     display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
@@ -189,7 +201,7 @@
     transition: border-color .15s, box-shadow .15s, transform .12s;
   }
   .item:first-of-type { margin-top: 10px; }
-  .item:hover { border-color: var(--ink); box-shadow: var(--shadow-2); }
+  @media (hover: hover) { .item:hover { border-color: var(--ink); box-shadow: var(--shadow-2); } }
   .item.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .item:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .item .top {
@@ -275,12 +287,13 @@
   /* --- Detail card --- */
   .detail {
     position: fixed; left: 12px; right: 12px;
-    bottom: calc(env(safe-area-inset-bottom) + 16px);
+    bottom: calc(env(safe-area-inset-bottom) + var(--panel-peek) + 12px);
     background: var(--surface);
     border: 1px solid var(--line); border-radius: var(--r-lg);
     box-shadow: var(--shadow-2);
     padding: 18px 18px 16px; z-index: 30; max-width: 460px; margin: 0 auto;
-    transform: translateY(120%); transition: transform .26s cubic-bezier(.2,.7,.2,1);
+    transform: translateY(calc(100% + var(--panel-peek)));
+    transition: transform .26s cubic-bezier(.2,.7,.2,1);
   }
   @media (prefers-reduced-motion: reduce) { .detail { transition: none; } }
   .detail.show { transform: translateY(0); }
@@ -406,7 +419,7 @@
   </div>
 </div>
 
-<aside class="panel collapsed" id="panel" aria-label="Liste der Projekte">
+<aside class="panel" id="panel" data-state="peek" aria-label="Liste der Projekte">
   <div class="desktop-brand">
     <span class="logo"><span class="dot" aria-hidden="true"></span>Wohnungen in Zürich</span>
     <h1>Neue Wohnungen, <em>bevor sie online sind.</em></h1>
@@ -677,7 +690,7 @@ function renderList() {
       flyToFeature(f); showDetail(f);
       els.list.querySelectorAll('.item').forEach(x => x.classList.remove('active'));
       btn.classList.add('active');
-      collapsePanel();
+      setPanelState('peek');
     });
   });
 }
@@ -708,6 +721,7 @@ function showDetail(f) {
   if (p.url) { els.detailLink.href = p.url; els.detailLink.style.display = 'inline-flex'; }
   else { els.detailLink.style.display = 'none'; }
   els.detail.classList.add('show');
+  if (typeof setPanelState === 'function') setPanelState('peek');
 }
 function hideDetail() { els.detail.classList.remove('show'); }
 els.detailClose.addEventListener('click', hideDetail);
@@ -716,17 +730,77 @@ map.on('click', e => {
   if (!f.length) hideDetail();
 });
 
-/* ── Panel drawer ───────────────────────────── */
-function togglePanel(force) {
-  const expand = force === true || (force === undefined && els.panel.classList.contains('collapsed'));
-  els.panel.classList.toggle('collapsed', !expand);
-  els.panelHandle.setAttribute('aria-expanded', String(expand));
-  els.toggleLabel.textContent = expand ? 'Karte' : 'Liste';
-  els.toggleIcon.style.transform = expand ? 'rotate(180deg)' : '';
+/* ── Panel drawer (3 snap states + drag) ───────────────────────────── */
+const isMobile = () => !window.matchMedia('(min-width: 920px)').matches;
+const PEEK_PX = 144;
+
+function setPanelState(state) {
+  if (!isMobile()) return;
+  if (!['peek','half','full'].includes(state)) state = 'peek';
+  els.panel.style.transform = '';
+  els.panel.dataset.state = state;
+  const expanded = state !== 'peek';
+  els.panelHandle.setAttribute('aria-expanded', String(expanded));
+  els.toggleLabel.textContent = expanded ? 'Karte' : 'Liste';
+  els.toggleIcon.style.transform = expanded ? 'rotate(180deg)' : '';
 }
-function collapsePanel() { togglePanel(false); }
-els.panelHandle.addEventListener('click', () => togglePanel());
-els.panelToggle.addEventListener('click', () => togglePanel());
+function cyclePanel() {
+  const cur = els.panel.dataset.state || 'peek';
+  setPanelState(cur === 'peek' ? 'half' : cur === 'half' ? 'full' : 'peek');
+}
+function snapYs() {
+  const wh = window.innerHeight;
+  return { peek: wh - PEEK_PX, half: wh - wh * 0.56, full: wh - wh * 0.86 };
+}
+
+let drag = null;
+els.panelHandle.addEventListener('pointerdown', e => {
+  if (!isMobile() || (e.button && e.button !== 0)) return;
+  const ys = snapYs();
+  drag = {
+    startY: e.clientY,
+    startTY: ys[els.panel.dataset.state || 'peek'],
+    lastY: e.clientY, lastT: performance.now(), velocity: 0,
+    minY: ys.full - 30, maxY: window.innerHeight - 60,
+    moved: false,
+  };
+  els.panel.classList.add('dragging');
+  els.panelHandle.setPointerCapture(e.pointerId);
+});
+els.panelHandle.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const dy = e.clientY - drag.startY;
+  if (Math.abs(dy) > 4) drag.moved = true;
+  const newY = Math.max(drag.minY, Math.min(drag.maxY, drag.startTY + dy));
+  els.panel.style.transform = `translateY(${newY}px)`;
+  const now = performance.now();
+  if (now > drag.lastT) drag.velocity = (e.clientY - drag.lastY) / (now - drag.lastT);
+  drag.lastY = e.clientY; drag.lastT = now;
+});
+function endDrag() {
+  if (!drag) return;
+  els.panel.classList.remove('dragging');
+  els.panel.style.transform = '';
+  if (!drag.moved) {
+    cyclePanel();
+  } else {
+    const ys = snapYs();
+    const projected = drag.startTY + (drag.lastY - drag.startY) + drag.velocity * 120;
+    let nearest = 'peek', nearestDist = Infinity;
+    for (const [k, v] of Object.entries(ys)) {
+      const d = Math.abs(v - projected);
+      if (d < nearestDist) { nearestDist = d; nearest = k; }
+    }
+    setPanelState(nearest);
+  }
+  drag = null;
+}
+els.panelHandle.addEventListener('pointerup', endDrag);
+els.panelHandle.addEventListener('pointercancel', endDrag);
+els.panelToggle.addEventListener('click', () => {
+  const cur = els.panel.dataset.state || 'peek';
+  setPanelState(cur === 'peek' ? 'full' : 'peek');
+});
 
 /* ── Inputs ───────────────────────────── */
 let qTimer;
@@ -773,7 +847,7 @@ map.on('load', async () => {
   map.addLayer({
     id: 'apps-unclustered', type: 'circle', source: 'apps', filter: ['!', ['has', 'point_count']],
     paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 4.5, 14, 7, 17, 11],
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 6, 14, 9, 17, 13],
       'circle-color': ACCENT,
       'circle-stroke-color': '#ffffff',
       'circle-stroke-width': 1.5,
@@ -810,6 +884,7 @@ map.on('load', async () => {
       els.stamp.textContent = `Stand ${d.toLocaleDateString('de-CH', { day:'2-digit', month:'short', year:'numeric' })}`;
     }
     applyFilters();
+    if (isMobile()) setPanelState('half');
   } catch (err) {
     els.list.innerHTML = '<div class="empty">Daten konnten nicht geladen werden.<br />Bitte später erneut versuchen.</div>';
     els.shown.textContent = '0';
@@ -817,7 +892,7 @@ map.on('load', async () => {
   }
 });
 
-window.addEventListener('keydown', e => { if (e.key === 'Escape') { hideDetail(); collapsePanel(); }});
+window.addEventListener('keydown', e => { if (e.key === 'Escape') { hideDetail(); setPanelState('peek'); }});
 </script>
 </body>
 </html>
